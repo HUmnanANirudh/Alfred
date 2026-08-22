@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Mic2 } from 'lucide-react';
 import { PageHeader } from '../components/layout/PageHeader';
-import { VoiceCard } from '../components/audio/VoiceCard';
+import { VoiceTable } from '../components/audio/VoiceTable';
 import { AddVoiceModal } from '../components/audio/AddVoiceModal';
 import { Button } from '../components/ui/Button';
 import { EmptyState } from '../components/ui/EmptyState';
@@ -31,11 +31,7 @@ export function VoicesPage() {
           title="No voices yet"
         />
       ) : (
-        <div className={styles.grid}>
-          {voices.map((voice: Voice) => (
-            <VoiceCard key={voice.id} voice={voice} />
-          ))}
-        </div>
+        <VoiceTable voices={voices as Voice[]} />
       )}
       <AddVoiceModal isOpen={open} onClose={() => setOpen(false)} />
     </div>

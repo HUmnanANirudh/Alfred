@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import type { SourceType } from '../../types';
+import type { Source, SourceType } from '../../types';
 import { useWorkspaceStore } from '../../store/workspaceStore';
 import { cn } from '../../utils/cn';
 import { Button } from '../ui/Button';
@@ -12,10 +12,17 @@ interface Props {
   selected: string[];
   onChange: (ids: string[]) => void;
   filterTypes?: SourceType[];
+  variant?: 'all' | 'audio';
   emptyAction?: { label: string; onClick: () => void };
 }
 
-export function SourceSelector({ selected, onChange, filterTypes, emptyAction }: Props) {
+function audioKind(source: Source) {
+  if (source.type === 'youtube' || source.type === 'video') return 'Transcript';
+  if (source.type === 'article') return 'Article';
+  return 'Text';
+}
+
+export function SourceSelector({ selected, onChange, filterTypes, variant = 'all', emptyAction }: Props) {
   const sources = useWorkspaceStore((s) => s.sources);
   const [query, setQuery] = useState('');
 
@@ -24,9 +31,12 @@ export function SourceSelector({ selected, onChange, filterTypes, emptyAction }:
     return sources.filter((s) => {
       if (filterTypes && !filterTypes.includes(s.type)) return false;
       if (!q) return true;
-      return s.title.toLowerCase().includes(q) || (s.excerpt?.toLowerCase().includes(q) ?? false);
+      const kind = variant === 'audio' ? audioKind(s) : s.type;
+      return s.title.toLowerCase().includes(q)
+        || kind.toLowerCase().includes(q)
+        || (s.excerpt?.toLowerCase().includes(q) ?? false);
     });
-  }, [filterTypes, query, sources]);
+  }, [filterTypes, query, sources, variant]);
 
   const visibleIds = items.map((s) => s.id);
 
@@ -60,6 +70,7 @@ export function SourceSelector({ selected, onChange, filterTypes, emptyAction }:
         {items.length === 0 && <p className={styles.empty}>No sources match that search.</p>}
         {items.map((source) => {
           const on = selected.includes(source.id);
+          const asTranscript = variant === 'audio' && (source.type === 'youtube' || source.type === 'video');
           return (
             <button
               key={source.id}
@@ -67,8 +78,9 @@ export function SourceSelector({ selected, onChange, filterTypes, emptyAction }:
               className={cn(styles.item, on && styles.on)}
               onClick={() => toggle(source.id)}
             >
-              <SourceIcon type={source.type} />
+              <SourceIcon type={asTranscript ? 'text' : source.type} />
               <span className={styles.title}>{source.title}</span>
+              {variant === 'audio' && <span className={styles.kind}>{audioKind(source)}</span>}
               <span className={styles.check} aria-hidden>{on ? '✓' : ''}</span>
             </button>
           );

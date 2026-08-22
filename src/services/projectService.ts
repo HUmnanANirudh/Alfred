@@ -1,7 +1,7 @@
 import type { Project, ProjectStats } from '../types';
 import { generateId } from '../utils/id';
 import { delay, now } from '../utils/mock';
-import { computeStats, db } from './memory';
+import { computeStats, db, seedProjectLibrary } from './memory';
 
 export const projectService = {
   async list(): Promise<Project[]> {
@@ -35,7 +35,8 @@ export const projectService = {
       },
     };
     db.projects.push(project);
-    return { ...project };
+    seedProjectLibrary(project.id);
+    return { ...project, stats: computeStats(project.id) };
   },
 
   async update(

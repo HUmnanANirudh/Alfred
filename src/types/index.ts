@@ -238,6 +238,7 @@ export type AudioGeneration = {
   projectId: string;
   voiceId: string;
   voiceName: string;
+  title?: string;
   script: string;
   duration?: number;             // seconds
   filePath?: string;
@@ -245,6 +246,7 @@ export type AudioGeneration = {
   status: JobStatus;
   sourceIds?: string[];          // project sources used to generate script
   createdAt: string;
+  updatedAt?: string;
 };
 
 // ------------------------------------------------------------
@@ -447,6 +449,7 @@ export type GenerateAudioConfig = {
   projectId: string;
   voiceId: string;
   script: string;
+  title?: string;
   sourceIds?: string[];
 };
 

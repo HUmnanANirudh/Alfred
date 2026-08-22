@@ -34,6 +34,7 @@ interface WorkspaceState {
   addShorts: (shorts: Short[]) => void;
   setAudio: (audio: AudioGeneration[]) => void;
   addAudio: (item: AudioGeneration) => void;
+  updateAudio: (item: AudioGeneration) => void;
   setWriting: (writing: WritingOutput[]) => void;
   addWriting: (item: WritingOutput) => void;
   updateWriting: (item: WritingOutput) => void;
@@ -73,6 +74,8 @@ export const useWorkspaceStore = create<WorkspaceState>((set) => ({
   addShorts: (shorts) => set((s) => ({ shorts: [...shorts, ...s.shorts] })),
   setAudio: (audio) => set({ audio }),
   addAudio: (item) => set((s) => ({ audio: [item, ...s.audio] })),
+  updateAudio: (item) =>
+    set((s) => ({ audio: s.audio.map((x) => (x.id === item.id ? item : x)) })),
   setWriting: (writing) => set({ writing }),
   addWriting: (item) => set((s) => ({ writing: [item, ...s.writing] })),
   updateWriting: (item) =>

@@ -4,10 +4,20 @@ import { delay, now } from '../utils/mock';
 import { runJob, type JobProgressHandler } from './jobRunner';
 import { db } from './memory';
 
+function titleFromScript(script: string, fallback = 'Untitled draft') {
+  const line = script.trim().split('\n').find((part) => part.trim());
+  if (!line) return fallback;
+  return line.length > 48 ? `${line.slice(0, 48).trim()}…` : line.trim();
+}
+
 export const audioService = {
   async list(projectId: string): Promise<AudioGeneration[]> {
     await delay(400);
-    return db.audio.filter((a) => a.projectId === projectId).map((a) => ({ ...a }));
+    return db.audio
+      .filter((a) => a.projectId === projectId)
+      .slice()
+      .sort((a, b) => (b.updatedAt ?? b.createdAt).localeCompare(a.updatedAt ?? a.createdAt))
+      .map((a) => ({ ...a }));
   },
 
   async get(id: string): Promise<AudioGeneration | null> {
@@ -30,19 +40,61 @@ export const audioService = {
     );
 
     const words = config.script.trim().split(/\s+/).length;
+    const stamp = now();
     const item: AudioGeneration = {
       id: generateId('aud'),
       projectId: config.projectId,
       voiceId: config.voiceId,
       voiceName: voice?.name ?? 'Voice',
+      title: config.title?.trim() || titleFromScript(config.script),
       script: config.script,
       duration: Math.max(8, Math.round(words / 2.4)),
       engine: voice?.engine,
       status: 'done',
       sourceIds: config.sourceIds,
-      createdAt: now(),
+      createdAt: stamp,
+      updatedAt: stamp,
     };
-    db.audio.push(item);
+    db.audio.unshift(item);
+    return job;
+  },
+
+  async update(
+    id: string,
+    updates: Partial<Pick<AudioGeneration, 'title' | 'script' | 'voiceId' | 'voiceName'>>,
+  ): Promise<AudioGeneration> {
+    await delay(350);
+    const item = db.audio.find((a) => a.id === id);
+    if (!item) throw new Error('We could not find that audio.');
+    Object.assign(item, updates, { updatedAt: now() });
+    if (updates.script) {
+      const words = updates.script.trim().split(/\s+/).length;
+      item.duration = Math.max(8, Math.round(words / 2.4));
+      if (!updates.title) item.title = item.title || titleFromScript(updates.script);
+    }
+    return { ...item };
+  },
+
+  async render(id: string, voiceId: string, onProgress?: JobProgressHandler): Promise<Job> {
+    const item = db.audio.find((a) => a.id === id);
+    if (!item) throw new Error('We could not find that audio.');
+    const voice = db.voices.find((v) => v.id === voiceId);
+    item.status = 'running';
+    const job = await runJob(
+      'generate_audio',
+      [
+        { label: 'Preparing script', ms: 800, engine: 'lfm2.5' },
+        { label: 'Processing voice', ms: 1200, engine: voice?.engine },
+        { label: 'Generating speech', ms: 2500, engine: 'pocket_tts' },
+        { label: 'Finalizing audio', ms: 800, engine: 'audio_cpp' },
+      ],
+      { projectId: item.projectId, onProgress },
+    );
+    item.voiceId = voiceId;
+    item.voiceName = voice?.name ?? item.voiceName;
+    item.engine = voice?.engine;
+    item.status = 'done';
+    item.updatedAt = now();
     return job;
   },
 
@@ -54,6 +106,7 @@ export const audioService = {
       {
         projectId: item.projectId,
         voiceId: item.voiceId,
+        title: item.title,
         script: item.script,
         sourceIds: item.sourceIds,
       },

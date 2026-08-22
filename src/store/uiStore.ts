@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 
-export type SourceIntake = 'all' | 'video';
+export type SourceIntake = 'all' | 'video' | 'text';
 
 interface UiState {
   commandOpen: boolean;

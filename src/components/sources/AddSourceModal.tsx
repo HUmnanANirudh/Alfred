@@ -20,6 +20,11 @@ const ALL_TABS = [
   { id: 'video', label: 'From device' },
 ];
 
+const TEXT_TABS = [
+  { id: 'article', label: 'Article URL' },
+  { id: 'text', label: 'Paste' },
+];
+
 const VIDEO_TABS = [
   { id: 'youtube', label: 'YouTube' },
   { id: 'video', label: 'From device' },
@@ -47,7 +52,7 @@ export function AddSourceModal({ projectId }: { projectId: string }) {
   const [busy, setBusy] = useState(false);
   const [failReason, setFailReason] = useState('');
 
-  const tabs = intake === 'video' ? VIDEO_TABS : ALL_TABS;
+  const tabs = intake === 'video' ? VIDEO_TABS : intake === 'text' ? TEXT_TABS : ALL_TABS;
 
   useEffect(() => {
     if (!open) return;

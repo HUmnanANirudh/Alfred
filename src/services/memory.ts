@@ -12,7 +12,7 @@ import type {
   WritingOutput,
 } from '../types';
 import { generateId } from '../utils/id';
-import { now } from '../utils/mock';
+import { excerpt, now, wordCount } from '../utils/mock';
 
 const created = now();
 
@@ -153,6 +153,30 @@ export const DEFAULT_VOICES: Voice[] = [
     isCloned: false,
     createdAt: created,
   },
+  {
+    id: 'vce_maya',
+    name: 'Maya',
+    engine: 'qwen3_tts',
+    isDefault: false,
+    isCloned: false,
+    createdAt: created,
+  },
+  {
+    id: 'vce_rio',
+    name: 'Rio',
+    engine: 'supertonic',
+    isDefault: false,
+    isCloned: false,
+    createdAt: created,
+  },
+  {
+    id: 'vce_studio',
+    name: 'Studio',
+    engine: 'chatterbox',
+    isDefault: false,
+    isCloned: true,
+    createdAt: created,
+  },
 ];
 
 export const DEFAULT_MODELS: AIModel[] = [
@@ -241,6 +265,100 @@ export const db: MemoryDb = {
 
 export function makeMockTranscript(projectId: string, videoId: string): Transcript {
   return buildTranscript(projectId, videoId);
+}
+
+export function seedProjectLibrary(projectId: string) {
+  const stamp = now();
+  const article: Source = {
+    id: generateId('src'),
+    projectId,
+    type: 'article',
+    title: 'Local research notes',
+    content: MOCK_ARTICLE,
+    excerpt: excerpt(MOCK_ARTICLE),
+    wordCount: wordCount(MOCK_ARTICLE),
+    url: 'https://notes.local/research',
+    metadata: { type: 'article', domain: 'notes.local', author: 'Studio' },
+    createdAt: stamp,
+  };
+  const notes: Source = {
+    id: generateId('src'),
+    projectId,
+    type: 'text',
+    title: 'Interview notes',
+    content: 'Keep the research in one project. Reuse it for shorts, threads, and the long piece — without another paste.\n\nA cloned voice should stay on this machine.',
+    excerpt: 'Keep the research in one project. Reuse it for shorts, threads, and the long piece.',
+    wordCount: 36,
+    metadata: { type: 'text' },
+    createdAt: stamp,
+  };
+  const youtube: Source = {
+    id: generateId('src'),
+    projectId,
+    type: 'youtube',
+    title: 'Working locally with research',
+    url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+    excerpt: '',
+    wordCount: 0,
+    content: '',
+    metadata: {
+      type: 'youtube',
+      videoId: 'dQw4w9WgXcQ',
+      channelName: 'Studio Notes',
+      duration: 742,
+    },
+    createdAt: stamp,
+  };
+
+  const video: Video = {
+    id: generateId('vid'),
+    projectId,
+    sourceId: youtube.id,
+    title: youtube.title,
+    duration: 742,
+    url: youtube.url,
+    hasTranscript: true,
+    createdAt: stamp,
+  };
+  const transcript = buildTranscript(projectId, video.id);
+  const body = transcript.segments.map((s) => s.text).join('\n\n');
+  youtube.content = body;
+  youtube.excerpt = excerpt(body);
+  youtube.wordCount = wordCount(body);
+
+  const draftA: AudioGeneration = {
+    id: generateId('aud'),
+    projectId,
+    voiceId: 'vce_alex0',
+    voiceName: 'Alex',
+    title: 'Desk intro',
+    script: article.content?.split('\n\n').slice(0, 2).join('\n\n') ?? MOCK_ARTICLE,
+    duration: 42,
+    engine: 'pocket_tts',
+    status: 'done',
+    sourceIds: [article.id],
+    createdAt: stamp,
+    updatedAt: stamp,
+  };
+  const draftB: AudioGeneration = {
+    id: generateId('aud'),
+    projectId,
+    voiceId: 'vce_maya',
+    voiceName: 'Maya',
+    title: 'From the talk',
+    script: transcript.segments.slice(0, 4).map((s) => s.text).join(' '),
+    duration: 28,
+    engine: 'qwen3_tts',
+    status: 'done',
+    sourceIds: [youtube.id],
+    createdAt: stamp,
+    updatedAt: stamp,
+  };
+
+  db.sources.push(article, notes, youtube);
+  db.videos.push(video);
+  db.transcripts.push(transcript);
+  db.audio.push(draftA, draftB);
 }
 
 export function computeStats(projectId: string) {

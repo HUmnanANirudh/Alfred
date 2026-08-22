@@ -3,8 +3,7 @@ import type { Voice } from '../../types';
 import { voiceService } from '../../services/voiceService';
 import { Modal } from '../ui/Modal';
 import { Button } from '../ui/Button';
-import { VoiceCard } from './VoiceCard';
-import styles from './VoiceSelector.module.css';
+import { VoiceTable } from './VoiceTable';
 
 export function VoiceSelector({
   isOpen,
@@ -33,7 +32,7 @@ export function VoiceSelector({
       isOpen={isOpen}
       onClose={onClose}
       title="Choose a voice"
-      size="md"
+      size="lg"
       footer={
         <>
           <Button variant="ghost" onClick={onClose}>Cancel</Button>
@@ -47,16 +46,7 @@ export function VoiceSelector({
         </>
       }
     >
-      <div className={styles.grid}>
-        {voices.map((voice) => (
-          <VoiceCard
-            key={voice.id}
-            voice={voice}
-            selected={voice.id === selected}
-            onSelect={() => setSelected(voice.id)}
-          />
-        ))}
-      </div>
+      <VoiceTable voices={voices} selectedId={selected} onSelect={setSelected} />
     </Modal>
   );
 }

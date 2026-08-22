@@ -1,33 +1,34 @@
 import { useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import { Mic } from 'lucide-react';
 import { PageHeader } from '../components/layout/PageHeader';
-import { AudioCard } from '../components/audio/AudioCard';
 import { VoiceSelector } from '../components/audio/VoiceSelector';
 import { SourceSelector } from '../components/sources/SourceSelector';
 import { ProcessingPanel } from '../components/video/ProcessingPanel';
 import { Button } from '../components/ui/Button';
 import { EmptyState } from '../components/ui/EmptyState';
-import { Textarea } from '../components/ui/Textarea';
 import { audioService } from '../services/audioService';
 import { toast } from '../store/toastStore';
 import { useUiStore } from '../store/uiStore';
 import { useWorkspaceStore } from '../store/workspaceStore';
+import { formatDate, formatDuration } from '../utils/format';
 import type { Job } from '../types';
 import styles from './page.module.css';
 
 export function AudioPage() {
   const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
   const audio = useWorkspaceStore((s) => s.audio);
   const sources = useWorkspaceStore((s) => s.sources);
   const setAudio = useWorkspaceStore((s) => s.setAudio);
   const setActiveJob = useWorkspaceStore((s) => s.setActiveJob);
   const setAdd = useUiStore((s) => s.setAddSourceOpen);
   const [sourceIds, setSourceIds] = useState<string[]>([]);
-  const [script, setScript] = useState('');
   const [voiceOpen, setVoiceOpen] = useState(false);
   const [job, setJob] = useState<Job | null>(null);
   const [busy, setBusy] = useState(false);
+
+  const hasLibrary = sources.length > 0;
 
   function scriptFromSources() {
     return sources
@@ -39,24 +40,30 @@ export function AudioPage() {
   async function generate(voiceId: string) {
     if (!id) return;
     if (sourceIds.length === 0) {
-      toast.error('Add a source, then generate.');
+      toast.error('Select a source, then generate.');
       return;
     }
-    const finalScript = script.trim() || scriptFromSources();
+    const script = scriptFromSources();
+    if (!script.trim()) {
+      toast.error('That source has no text yet.');
+      return;
+    }
     setVoiceOpen(false);
     setBusy(true);
     try {
       await audioService.generate(
-        { projectId: id, voiceId, script: finalScript, sourceIds },
+        { projectId: id, voiceId, script, sourceIds },
         (next) => {
           setJob(next);
           setActiveJob(next);
         },
       );
-      setAudio(await audioService.list(id));
+      const list = await audioService.list(id);
+      setAudio(list);
       setActiveJob(null);
-      toast.success('Audio ready');
       setJob(null);
+      toast.success('Draft ready');
+      if (list[0]) navigate(`/projects/${id}/audio/${list[0].id}`);
     } catch {
       toast.error('Audio generation couldn\'t be completed.');
     } finally {
@@ -68,7 +75,11 @@ export function AudioPage() {
     <div className={styles.page}>
       <PageHeader
         title="Audio"
-        actions={<Button variant="primary" onClick={() => setAdd(true)}>Add source</Button>}
+        actions={
+          <Button variant={hasLibrary ? 'ghost' : 'primary'} onClick={() => setAdd(true, 'text')}>
+            Add source
+          </Button>
+        }
       />
 
       <div className={styles.stack}>
@@ -77,16 +88,10 @@ export function AudioPage() {
             projectId={id}
             selected={sourceIds}
             onChange={setSourceIds}
-            emptyAction={{ label: 'Add source', onClick: () => setAdd(true) }}
+            variant="audio"
+            emptyAction={{ label: 'Add source', onClick: () => setAdd(true, 'text') }}
           />
         )}
-        <Textarea
-          label="Direction (optional)"
-          rows={6}
-          placeholder="Leave blank to speak from the selected sources…"
-          value={script}
-          onChange={(e) => setScript(e.target.value)}
-        />
         <Button
           variant="primary"
           disabled={sourceIds.length === 0 || busy}
@@ -105,12 +110,33 @@ export function AudioPage() {
       {audio.length === 0 && !busy ? (
         <EmptyState
           icon={<Mic size={40} strokeWidth={1.25} />}
-          title="Nothing generated yet"
+          title="No drafts yet"
         />
       ) : (
-        <div className={styles.stack}>
-          {audio.map((item) => <AudioCard key={item.id} item={item} />)}
-        </div>
+        <table className={styles.table} style={{ marginTop: 32 }}>
+          <thead>
+            <tr>
+              <th>Draft</th>
+              <th>Voice</th>
+              <th>Length</th>
+              <th>Updated</th>
+            </tr>
+          </thead>
+          <tbody>
+            {audio.map((item) => (
+              <tr key={item.id}>
+                <td>
+                  <Link to={`/projects/${id}/audio/${item.id}`} className={styles.tableLink}>
+                    {item.title || item.script.slice(0, 48)}
+                  </Link>
+                </td>
+                <td>{item.voiceName}</td>
+                <td>{item.duration != null ? formatDuration(item.duration) : '—'}</td>
+                <td>{formatDate(item.updatedAt ?? item.createdAt)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       )}
 
       <VoiceSelector
