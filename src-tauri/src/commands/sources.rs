@@ -56,7 +56,7 @@ async fn persist_video_bundle(
             let dir = data_dir.join("projects").join(&source.project_id).join("videos");
             let _ = std::fs::create_dir_all(&dir);
             let out = dir.join(format!("{vid}.%(ext)s"));
-            if engines::ytdlp_download(url, &out.to_string_lossy()).is_ok() {
+            if engines::ytdlp_download(url, &out.to_string_lossy()).await.is_ok() {
                 let mp4 = dir.join(format!("{vid}.mp4"));
                 if mp4.exists() {
                     file_path = Some(mp4.to_string_lossy().into());
@@ -212,7 +212,7 @@ pub async fn add_youtube(
     let mut duration = None;
     let mut channel = None;
     let mut thumbnail = None;
-    match engines::ytdlp_info(&url) {
+    match engines::ytdlp_info(&url).await {
         Ok(info) => {
             if let Some(t) = info.get("title").and_then(|v| v.as_str()) {
                 title = t.to_string();

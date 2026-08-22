@@ -135,4 +135,14 @@ pub const MIGRATIONS: &[&str] = &[
       is_default INTEGER DEFAULT 0,
       installed_at TEXT
     )"#,
+    "CREATE INDEX IF NOT EXISTS idx_sources_project ON sources(project_id)",
+    "CREATE INDEX IF NOT EXISTS idx_videos_project ON videos(project_id)",
+    "CREATE INDEX IF NOT EXISTS idx_videos_source ON videos(source_id)",
+    "CREATE INDEX IF NOT EXISTS idx_transcripts_project ON transcripts(project_id)",
+    "CREATE INDEX IF NOT EXISTS idx_transcripts_video ON transcripts(video_id)",
+    "CREATE INDEX IF NOT EXISTS idx_shorts_project ON shorts(project_id)",
+    "CREATE INDEX IF NOT EXISTS idx_audio_project ON audio_generations(project_id)",
+    "CREATE INDEX IF NOT EXISTS idx_writing_project ON writing_outputs(project_id)",
+    "CREATE INDEX IF NOT EXISTS idx_social_output ON social_posts(output_id)",
+    "CREATE INDEX IF NOT EXISTS idx_jobs_project ON jobs(project_id)",
 ];

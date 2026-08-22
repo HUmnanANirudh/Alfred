@@ -8,10 +8,13 @@ mod schema;
 
 use std::path::PathBuf;
 use tauri::Manager;
+use tokio::sync::Mutex;
 
 pub struct AppState {
     pub db: turso::Database,
     pub data_dir: PathBuf,
+    pub llama: Mutex<Option<tokio::process::Child>>,
+    pub audio: Mutex<Option<tokio::process::Child>>,
 }
 
 impl AppState {
@@ -24,6 +27,9 @@ impl AppState {
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_fs::init())
+        .plugin(tauri_plugin_shell::init())
         .setup(|app| {
             let dir = app.path().app_data_dir()?;
             std::fs::create_dir_all(&dir)?;
@@ -33,7 +39,17 @@ pub fn run() {
             let db_path = dir.join("alfred.db");
             let db = tauri::async_runtime::block_on(db::open(&db_path.to_string_lossy()))?;
             tauri::async_runtime::block_on(db::migrate(&db))?;
-            app.manage(AppState { db, data_dir: dir });
+            app.manage(AppState {
+                db,
+                data_dir: dir.clone(),
+                llama: Mutex::new(None),
+                audio: Mutex::new(None),
+            });
+            let handle = app.handle().clone();
+            tauri::async_runtime::spawn(async move {
+                let state = handle.state::<AppState>();
+                engines::ensure_sidecars(&state.data_dir, &state.llama, &state.audio).await;
+            });
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![

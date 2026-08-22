@@ -44,7 +44,7 @@ fn stitch(context: &str, heading: &str) -> String {
     let body = if context.trim().is_empty() {
         "Add sources to this project, then generate again.".to_string()
     } else {
-        context.chars().take(4000).collect()
+        engines::truncate_at_sentence(context, 4000)
     };
     format!("# {heading}\n\n{body}")
 }
@@ -117,7 +117,10 @@ pub async fn generate_article(
     state: State<'_, AppState>,
 ) -> Result<WritingOutput, String> {
     let conn = state.connect()?;
-    let context = db::source_context(&conn, &config.project_id, &config.source_ids).await?;
+    let context = engines::truncate_at_sentence(
+        &db::source_context(&conn, &config.project_id, &config.source_ids).await?,
+        6000,
+    );
     let title = config
         .title
         .clone()
@@ -159,10 +162,15 @@ async fn generate_social(
     extra: &str,
 ) -> Result<WritingOutput, String> {
     let conn = state.connect()?;
-    let context = db::source_context(&conn, &config.project_id, &config.source_ids).await?;
+    let context = engines::truncate_at_sentence(
+        &db::source_context(&conn, &config.project_id, &config.source_ids).await?,
+        6000,
+    );
     let count = config.post_count.unwrap_or(if writing_type == "thread" { 7 } else { 1 });
+    let topic = config.topic.as_deref().unwrap_or("");
+    let style = config.style.as_deref().unwrap_or("");
     let prompt = format!(
-        "TASK: WRITE_SOCIAL\nFORMAT: JSON {{\"posts\":[{{\"index\":1,\"content\":\"...\"}}]}}\nType: {writing_type}\nCount: {count}\nTone: {}\n{extra}\nSources:\n{context}",
+        "TASK: WRITE_SOCIAL\nFORMAT: JSON {{\"posts\":[{{\"index\":1,\"content\":\"...\"}}]}}\nType: {writing_type}\nCount: {count}\nTone: {}\nTopic: {topic}\nStyle: {style}\n{extra}\nSources:\n{context}",
         config.tone.as_deref().unwrap_or("sharp")
     );
     let fallback = stitch(&context, writing_type);

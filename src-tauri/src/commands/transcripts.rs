@@ -70,13 +70,13 @@ pub async fn generate_transcript(
     let _ = std::fs::create_dir_all(wav.parent().unwrap());
     let media = video.file_path.clone();
     if let Some(path) = &media {
-        engines::ffmpeg_extract_wav(path, &wav.to_string_lossy()).ok();
+        let _ = engines::ffmpeg_extract_wav(path, &wav.to_string_lossy()).await;
     }
     jobs::set_step(&mut job, 0, "done");
     jobs::set_step(&mut job, 1, "running");
     jobs::emit(&app, &job);
 
-    let text = if wav.exists() {
+    let asr = if wav.exists() {
         match engines::audio_transcribe(&wav.to_string_lossy()).await {
             Ok(t) => t,
             Err(e) => {
@@ -99,7 +99,12 @@ pub async fn generate_transcript(
     jobs::set_step(&mut job, 2, "running");
     jobs::emit(&app, &job);
 
-    let segments = split_segments(&text);
+    let text = asr.text.clone();
+    let segments = if asr.segments.is_empty() {
+        fallback_segments(&text)
+    } else {
+        asr.segments
+    };
     let stamp = now();
     let tid = db::new_id("trs");
     let segs_json = serde_json::to_string(&segments).unwrap_or_else(|_| "[]".into());
@@ -133,11 +138,10 @@ pub async fn generate_transcript(
     jobs::set_step(&mut job, 2, "done");
     jobs::finish(&mut job, true, None);
     jobs::emit(&app, &job);
-    let _ = json!({ "id": tid });
     Ok(job)
 }
 
-fn split_segments(text: &str) -> Vec<serde_json::Value> {
+fn fallback_segments(text: &str) -> Vec<serde_json::Value> {
     let mut t = 0.0f64;
     text.split(|c| c == '.' || c == '\n')
         .filter(|s| !s.trim().is_empty())

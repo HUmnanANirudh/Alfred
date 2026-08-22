@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { Source, SourceType } from '../../types';
-import { sourceService } from '../../services/sourceService';
+import { isTauri } from '../../services/ipc';
 import { videoService } from '../../services/videoService';
 import { transcriptService } from '../../services/transcriptService';
 import { useWorkspaceStore } from '../../store/workspaceStore';
@@ -52,6 +52,7 @@ export function AddSourceModal({ projectId }: { projectId: string }) {
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const [fileName, setFileName] = useState('');
+  const [filePath, setFilePath] = useState('');
   const [busy, setBusy] = useState(false);
   const [failReason, setFailReason] = useState('');
 
@@ -64,6 +65,7 @@ export function AddSourceModal({ projectId }: { projectId: string }) {
     setTitle('');
     setContent('');
     setFileName('');
+    setFilePath('');
     setFailReason('');
   }, [open, intake]);
 
@@ -72,6 +74,7 @@ export function AddSourceModal({ projectId }: { projectId: string }) {
     setTitle('');
     setContent('');
     setFileName('');
+    setFilePath('');
     setFailReason('');
     setBusy(false);
   }
@@ -166,17 +169,19 @@ export function AddSourceModal({ projectId }: { projectId: string }) {
   }
 
   async function handleLocal() {
-    if (!fileName.trim()) {
+    if (!filePath.trim() && !fileName.trim()) {
       setFailReason('Choose a video from this device.');
       return;
     }
     setBusy(true);
     try {
+      const path = filePath.trim() || fileName.trim();
+      const name = path.split(/[/\\]/).pop() ?? path;
       const source = await sourceService.add({
         projectId,
         type: 'video',
-        title: fileName,
-        metadata: { type: 'video', filePath: fileName, duration: 198 },
+        title: name,
+        metadata: { type: 'video', filePath: path },
       });
       await finishVideo(source);
     } catch {
@@ -232,15 +237,41 @@ export function AddSourceModal({ projectId }: { projectId: string }) {
           />
         )}
         {tab === 'video' && (
-          <label className={styles.filePick}>
+          <div className={styles.filePick}>
             <span>Video file</span>
+            <button
+              type="button"
+              className={styles.fileName}
+              onClick={async () => {
+                if (isTauri()) {
+                  const { open } = await import('@tauri-apps/plugin-dialog');
+                  const selected = await open({
+                    multiple: false,
+                    filters: [{ name: 'Video', extensions: ['mp4', 'mov', 'mkv', 'webm', 'm4v'] }],
+                  });
+                  if (typeof selected === 'string' && selected) {
+                    setFilePath(selected);
+                    setFileName(selected.split(/[/\\]/).pop() ?? selected);
+                  }
+                  return;
+                }
+                document.getElementById('alfred-local-video')?.click();
+              }}
+            >
+              {fileName || 'Choose a file from this device'}
+            </button>
             <input
+              id="alfred-local-video"
               type="file"
               accept="video/*"
-              onChange={(e) => setFileName(e.target.files?.[0]?.name ?? '')}
+              hidden
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                setFileName(file?.name ?? '');
+                setFilePath(file?.name ?? '');
+              }}
             />
-            <span className={styles.fileName}>{fileName || 'Choose a file from this device'}</span>
-          </label>
+          </div>
         )}
         {tab === 'text' && (
           <>

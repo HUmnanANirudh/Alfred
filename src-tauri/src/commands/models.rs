@@ -4,7 +4,6 @@ use crate::ids::now;
 use crate::jobs;
 use crate::models::{AiModel, Job, StorageUsage};
 use crate::AppState;
-use std::process::Command;
 use tauri::{AppHandle, State};
 
 #[tauri::command]
@@ -56,18 +55,11 @@ pub async fn install_model(app: AppHandle, model_id: String, state: State<'_, Ap
     let mut ok = true;
     let mut err = None;
     if engine == "audio_cpp" {
-        match Command::new("audiocpp_model_manager")
-            .args(["install", &model_id, "--models-dir", &models_dir.to_string_lossy()])
-            .status()
-        {
-            Ok(status) if status.success() => {}
-            Ok(_) => {
+        match engines::install_audio_model(&model_id, &models_dir).await {
+            Ok(()) => {}
+            Err(e) => {
                 ok = false;
-                err = Some("audiocpp_model_manager could not install that package.".into());
-            }
-            Err(_) => {
-                ok = false;
-                err = Some("audiocpp_model_manager is not installed on this machine.".into());
+                err = Some(e);
             }
         }
     } else {

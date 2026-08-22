@@ -1,4 +1,5 @@
 use crate::db;
+use crate::engines;
 use crate::ids::now;
 use crate::models::{Source, Video};
 use crate::AppState;
@@ -136,6 +137,22 @@ pub async fn add_video_from_local(
 #[tauri::command]
 pub async fn delete_video(id: String, state: State<'_, AppState>) -> Result<(), String> {
     let conn = state.connect()?;
+    if let Some(video) = get_video(id.clone(), state.clone()).await? {
+        engines::unlink(video.file_path.as_deref());
+        engines::unlink(video.thumbnail_path.as_deref());
+    }
+    let shorts = db::collect(
+        &conn,
+        "SELECT id, project_id, video_id, preset_id, title, duration, file_path, thumbnail_path, hook, confidence, transcript_excerpt, captions_enabled, caption_style, status, created_at FROM shorts WHERE video_id = ?1",
+        (id.as_str(),),
+        db::row_short,
+    )
+    .await
+    .unwrap_or_default();
+    for short in shorts {
+        engines::unlink(short.file_path.as_deref());
+        engines::unlink(short.thumbnail_path.as_deref());
+    }
     conn.execute("DELETE FROM shorts WHERE video_id = ?1", (id.as_str(),))
         .await
         .map_err(|e| e.to_string())?;

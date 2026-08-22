@@ -89,17 +89,27 @@ pub async fn create_shorts(app: AppHandle, config: CreateShortConfig, state: Sta
     jobs::emit(&app, &job);
 
     let target = config.number_of_clips.max(1);
-    let prompt = format!(
-        "TASK: SELECT_CLIPS\nFORMAT: JSON only\nInput:\n{{\"transcript\":{},\"target_count\":{target}}}\nOutput schema: {{\"clips\":[{{\"start\":0,\"end\":12,\"hook_score\":0.9,\"hook\":\"...\",\"reason\":\"...\"}}]}}",
-        if transcript_text.is_empty() { "[]".into() } else { transcript_text }
-    );
     let mut clips: Vec<serde_json::Value> = Vec::new();
-    if let Ok(raw) = engines::llama_complete(&prompt, 512).await {
-        if let Ok(parsed) = engines::extract_json(&raw) {
-            if let Some(arr) = parsed.get("clips").and_then(|v| v.as_array()) {
-                clips = arr.clone();
+    if config.find_clips_auto {
+        let prompt = format!(
+            "TASK: SELECT_CLIPS\nFORMAT: JSON only\nInput:\n{{\"transcript\":{},\"target_count\":{target}}}\nOutput schema: {{\"clips\":[{{\"start\":0,\"end\":12,\"hook_score\":0.9,\"hook\":\"...\",\"reason\":\"...\"}}]}}",
+            if transcript_text.is_empty() { "[]".into() } else { transcript_text }
+        );
+        if let Ok(raw) = engines::llama_complete(&prompt, 512).await {
+            if let Ok(parsed) = engines::extract_json(&raw) {
+                if let Some(arr) = parsed.get("clips").and_then(|v| v.as_array()) {
+                    clips = arr.clone();
+                }
             }
         }
+        jobs::set_step(&mut job, 1, "done");
+        jobs::emit(&app, &job);
+        jobs::set_step(&mut job, 2, "running");
+        jobs::emit(&app, &job);
+    } else {
+        jobs::set_step(&mut job, 1, "done");
+        jobs::set_step(&mut job, 2, "running");
+        jobs::emit(&app, &job);
     }
     if clips.is_empty() {
         for i in 0..target {
@@ -109,11 +119,14 @@ pub async fn create_shorts(app: AppHandle, config: CreateShortConfig, state: Sta
                 "end": start + 14.0,
                 "hook_score": 0.72,
                 "hook": "A concrete claim from this video.",
-                "reason": "Even split while the text model is offline."
+                "reason": if config.find_clips_auto {
+                    "Even split while the text model is offline."
+                } else {
+                    "Manual even windows — auto clip analysis was off."
+                }
             }));
         }
     }
-    jobs::set_step(&mut job, 1, "done");
     jobs::set_step(&mut job, 2, "done");
     jobs::set_step(&mut job, 3, "running");
     jobs::emit(&app, &job);
@@ -150,7 +163,7 @@ pub async fn create_shorts(app: AppHandle, config: CreateShortConfig, state: Sta
         let file = out_dir.join(format!("{sid}.mp4"));
         let mut file_path = None;
         if let Some(input) = video.as_ref().and_then(|v| v.file_path.as_ref()) {
-            if engines::ffmpeg_cut_clip(input, start, dur, &file.to_string_lossy()).is_ok() {
+            if engines::ffmpeg_cut_clip(input, start, dur, &file.to_string_lossy()).await.is_ok() {
                 file_path = Some(file.to_string_lossy().into_owned());
             }
         }
@@ -209,6 +222,10 @@ pub async fn regenerate_short(app: AppHandle, id: String, state: State<'_, AppSt
 #[tauri::command]
 pub async fn delete_short(id: String, state: State<'_, AppState>) -> Result<(), String> {
     let conn = state.connect()?;
+    if let Some(short) = get_short(id.clone(), state.clone()).await? {
+        engines::unlink(short.file_path.as_deref());
+        engines::unlink(short.thumbnail_path.as_deref());
+    }
     conn.execute("DELETE FROM shorts WHERE id = ?1", (id.as_str(),))
         .await
         .map_err(|e| e.to_string())?;

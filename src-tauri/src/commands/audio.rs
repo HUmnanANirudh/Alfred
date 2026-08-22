@@ -101,6 +101,9 @@ pub async fn generate_audio(
                 .unwrap_or_else(|| title_from_script(&config.script));
             let words = config.script.split_whitespace().count() as f64;
             let ids = serde_json::to_string(&config.source_ids).unwrap_or_else(|_| "[]".into());
+            let duration = engines::ffprobe_duration(file_path.as_deref().unwrap_or(""))
+                .await
+                .unwrap_or_else(|| (words / 2.4).max(8.0));
             conn.execute(
                 "INSERT INTO audio_generations (id, project_id, voice_id, voice_name, title, script, duration, file_path, engine, status, source_ids, created_at, updated_at)
                  VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, 'done', ?10, ?11, ?12)",
@@ -111,7 +114,7 @@ pub async fn generate_audio(
                     voice.as_ref().map(|v| v.name.as_str()).unwrap_or("Voice"),
                     title.as_str(),
                     config.script.as_str(),
-                    (words / 2.4).max(8.0),
+                    duration,
                     file_path.as_deref(),
                     voice.as_ref().map(|v| v.engine.as_str()),
                     ids.as_str(),
@@ -202,6 +205,9 @@ pub async fn render_audio(
 #[tauri::command]
 pub async fn delete_audio(id: String, state: State<'_, AppState>) -> Result<(), String> {
     let conn = state.connect()?;
+    if let Some(item) = get_audio(id.clone(), state.clone()).await? {
+        engines::unlink(item.file_path.as_deref());
+    }
     conn.execute("DELETE FROM audio_generations WHERE id = ?1", (id.as_str(),))
         .await
         .map_err(|e| e.to_string())?;
