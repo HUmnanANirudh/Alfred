@@ -74,11 +74,30 @@
   font-size: var(--text-sm);
 }
 
-.prose {
+.afterTabs {
+  margin-top: var(--space-4);
+}
+
+.actions {
+  display: flex;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+}
+
+.draft {
+  margin-top: var(--space-6);
+}
+
+.streamDraft {
   white-space: pre-wrap;
   font-size: var(--text-base);
   line-height: 1.7;
   color: var(--color-text-primary);
+  min-height: 8rem;
+  padding: var(--space-4);
+  background: var(--color-bg-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
 }
 
 .mono {

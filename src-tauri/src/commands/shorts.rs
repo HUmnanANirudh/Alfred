@@ -85,12 +85,13 @@ pub async fn create_shorts(app: AppHandle, config: CreateShortConfig, state: Sta
         .map(|t| t.segments.to_string())
         .unwrap_or_default();
     jobs::set_step(&mut job, 0, "done");
-    jobs::set_step(&mut job, 1, "running");
     jobs::emit(&app, &job);
 
     let target = config.number_of_clips.max(1);
     let mut clips: Vec<serde_json::Value> = Vec::new();
     if config.find_clips_auto {
+        jobs::set_step(&mut job, 1, "running");
+        jobs::emit(&app, &job);
         let prompt = format!(
             "TASK: SELECT_CLIPS\nFORMAT: JSON only\nInput:\n{{\"transcript\":{},\"target_count\":{target}}}\nOutput schema: {{\"clips\":[{{\"start\":0,\"end\":12,\"hook_score\":0.9,\"hook\":\"...\",\"reason\":\"...\"}}]}}",
             if transcript_text.is_empty() { "[]".into() } else { transcript_text }
@@ -103,7 +104,6 @@ pub async fn create_shorts(app: AppHandle, config: CreateShortConfig, state: Sta
             }
         }
         jobs::set_step(&mut job, 1, "done");
-        jobs::emit(&app, &job);
         jobs::set_step(&mut job, 2, "running");
         jobs::emit(&app, &job);
     } else {

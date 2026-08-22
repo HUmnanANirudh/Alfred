@@ -39,6 +39,7 @@ export function WritingArticlePage() {
   const [length, setLength] = useState<'short' | 'medium' | 'long'>('medium');
   const [sourceIds, setSourceIds] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
+  const [stream, setStream] = useState('');
   const current = writing.find((w) => w.type === 'article');
 
   async function generate() {
@@ -48,6 +49,7 @@ export function WritingArticlePage() {
       return;
     }
     setBusy(true);
+    setStream('');
     try {
       const output = await writingService.generateArticle({
         projectId: id,
@@ -56,8 +58,12 @@ export function WritingArticlePage() {
         sourceIds,
         tone,
         length,
+      }, {
+        onStart: () => setStream(''),
+        onToken: (token) => setStream((prev) => prev + token),
       });
       addWriting(output);
+      setStream('');
       toast.success('Draft generated');
     } catch {
       toast.error('Something went wrong. Try again.');
@@ -108,11 +114,13 @@ export function WritingArticlePage() {
             onChange={setSourceIds}
           />
         )}
-        <div style={{ display: 'flex', gap: 'var(--space-2)', marginTop: 'var(--space-2)' }}>
+        <div className={styles.actions}>
           <Button variant="secondary" onClick={() => setAdd(true)}>Add source</Button>
           <Button variant="primary" loading={busy} disabled={sourceIds.length === 0} onClick={generate}>Generate Article</Button>
         </div>
       </div>
+
+      {busy && stream && <pre className={styles.streamDraft}>{stream}</pre>}
 
       {!current && !busy && (
         <EmptyState
@@ -121,8 +129,8 @@ export function WritingArticlePage() {
         />
       )}
 
-      {current && (
-        <div className={styles.stack} style={{ marginTop: 24 }}>
+      {current && !busy && (
+        <div className={`${styles.stack} ${styles.draft}`}>
           <div className={styles.row}>
             <Button size="sm" variant="secondary" onClick={generate} loading={busy}>Regenerate</Button>
             <Button size="sm" variant="ghost" onClick={() => transform('rewrite')}>Rewrite</Button>

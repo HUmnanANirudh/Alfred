@@ -24,6 +24,7 @@ export function WritingLinkedInPage() {
   const [tone, setTone] = useState<WritingTone>('professional');
   const [sourceIds, setSourceIds] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
+  const [stream, setStream] = useState('');
   const current = writing.find((w) => w.type === 'linkedin');
 
   async function generate() {
@@ -33,14 +34,19 @@ export function WritingLinkedInPage() {
       return;
     }
     setBusy(true);
+    setStream('');
     try {
       const output = await writingService.generateLinkedIn({
         projectId: id,
         topic: topic.trim() || undefined,
         sourceIds,
         tone,
+      }, {
+        onStart: () => setStream(''),
+        onToken: (token) => setStream((prev) => prev + token),
       });
       addWriting(output);
+      setStream('');
       toast.success('Draft generated');
     } catch {
       toast.error('Something went wrong. Try again.');
@@ -70,19 +76,20 @@ export function WritingLinkedInPage() {
             onChange={setSourceIds}
           />
         )}
-        <div style={{ display: 'flex', gap: 'var(--space-2)', marginTop: 'var(--space-2)' }}>
+        <div className={styles.actions}>
           <Button variant="secondary" onClick={() => setAdd(true)}>Add source</Button>
           <Button variant="primary" loading={busy} disabled={sourceIds.length === 0} onClick={generate}>Generate post</Button>
         </div>
       </div>
+      {busy && stream && <pre className={styles.streamDraft}>{stream}</pre>}
       {!current && !busy && (
         <EmptyState
           icon={<Briefcase size={40} strokeWidth={1.25} />}
           title="No drafts yet"
         />
       )}
-      {current && (
-        <div className={styles.stack} style={{ marginTop: 24 }}>
+      {current && !busy && (
+        <div className={`${styles.stack} ${styles.draft}`}>
           <Button size="sm" variant="secondary" onClick={generate} loading={busy}>Regenerate</Button>
           <ArticleEditor
             content={current.content}

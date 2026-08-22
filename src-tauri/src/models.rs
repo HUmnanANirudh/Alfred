@@ -271,3 +271,9 @@ pub struct GenerateSocialConfig {
     pub style: Option<String>,
     pub post_count: Option<i64>,
 }
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LlmTokenEvent {
+    pub token: String,
+}

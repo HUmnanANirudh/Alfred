@@ -27,6 +27,7 @@ export function WritingXPage() {
   const [tone, setTone] = useState<WritingTone>('sharp');
   const [sourceIds, setSourceIds] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
+  const [stream, setStream] = useState('');
 
   const latestPost = writing.find((w) => w.type === 'x_post');
   const latestThread = writing.find((w) => w.type === 'thread');
@@ -40,13 +41,19 @@ export function WritingXPage() {
       return;
     }
     setBusy(true);
+    setStream('');
     try {
+      const handlers = {
+        onStart: () => setStream(''),
+        onToken: (token: string) => setStream((prev) => prev + token),
+      };
       const output = tab === 'post'
-        ? await writingService.generateXPost({ projectId: id, sourceIds, tone })
-        : await writingService.generateThread({ projectId: id, sourceIds, tone, postCount: 7, style: 'educational' });
+        ? await writingService.generateXPost({ projectId: id, sourceIds, tone }, handlers)
+        : await writingService.generateThread({ projectId: id, sourceIds, tone, postCount: 7, style: 'educational' }, handlers);
       addWriting(output);
       const list = await writingService.listPosts(output.id);
       setPosts([...list, ...posts.filter((p) => p.outputId !== output.id)]);
+      setStream('');
       toast.success('Draft generated');
     } catch {
       toast.error('Something went wrong. Try again.');
@@ -77,7 +84,7 @@ export function WritingXPage() {
         value={tab}
         onChange={(next) => setTab(next as 'post' | 'thread')}
       />
-      <div className={styles.stack} style={{ marginTop: 16 }}>
+      <div className={`${styles.stack} ${styles.afterTabs}`}>
         <Select label="Tone" value={tone} onChange={(e) => setTone(e.target.value as WritingTone)}>
           <option value="sharp">Sharp</option>
           <option value="casual">Casual</option>
@@ -92,13 +99,15 @@ export function WritingXPage() {
             onChange={setSourceIds}
           />
         )}
-        <div style={{ display: 'flex', gap: 'var(--space-2)', marginTop: 'var(--space-2)' }}>
+        <div className={styles.actions}>
           <Button variant="secondary" onClick={() => setAdd(true)}>Add source</Button>
           <Button variant="primary" loading={busy} disabled={sourceIds.length === 0} onClick={generate}>
             {tab === 'post' ? 'Write a short X post' : 'Create a thread'}
           </Button>
         </div>
       </div>
+
+      {busy && stream && <pre className={styles.streamDraft}>{stream}</pre>}
 
       {visiblePosts.length === 0 && !busy && (
         <EmptyState
@@ -107,8 +116,8 @@ export function WritingXPage() {
         />
       )}
 
-      {visiblePosts.length > 0 && (
-        <div className={styles.stack} style={{ marginTop: 24 }}>
+      {visiblePosts.length > 0 && !busy && (
+        <div className={`${styles.stack} ${styles.draft}`}>
           <div className={styles.row}>
             <Button size="sm" variant="secondary" onClick={generate} loading={busy}>Regenerate</Button>
             <Button size="sm" variant="ghost" onClick={copyAll}>Copy</Button>

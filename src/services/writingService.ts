@@ -6,8 +6,27 @@ import type {
 } from '../types';
 import { generateId } from '../utils/id';
 import { delay, now } from '../utils/mock';
-import { invokeCmd, isTauri } from './ipc';
+import { invokeCmd, isTauri, withLlmTokens } from './ipc';
 import { db, MOCK_ARTICLE } from './memory';
+
+export type WritingStreamHandlers = {
+  onStart?: () => void;
+  onToken?: (token: string) => void;
+};
+
+async function streamMock(text: string, handlers?: WritingStreamHandlers): Promise<string> {
+  handlers?.onStart?.();
+  if (!handlers?.onToken) {
+    await delay(400);
+    return text;
+  }
+  const pieces = text.split(/(?<=\s)/);
+  for (const piece of pieces) {
+    handlers.onToken(piece);
+    await delay(18);
+  }
+  return text;
+}
 
 function save(output: WritingOutput, posts?: SocialPost[]): WritingOutput {
   db.writing.push(output);
@@ -63,16 +82,18 @@ export const writingService = {
     return db.socialPosts.filter((p) => p.outputId === outputId).map((p) => ({ ...p }));
   },
 
-  async generateArticle(config: GenerateArticleConfig): Promise<WritingOutput> {
-    if (isTauri()) return invokeCmd<WritingOutput>('generate_article', { config });
-    await delay(2000);
+  async generateArticle(config: GenerateArticleConfig, stream?: WritingStreamHandlers): Promise<WritingOutput> {
+    if (isTauri()) {
+      return withLlmTokens(() => invokeCmd<WritingOutput>('generate_article', { config }), stream);
+    }
     const title = config.title?.trim() || config.topic.trim() || 'Draft from project sources';
+    const content = await streamMock(`# ${title}\n\n${MOCK_ARTICLE}`, stream);
     return save({
       id: generateId('wrt'),
       projectId: config.projectId,
       type: 'article',
       title,
-      content: `# ${title}\n\n${MOCK_ARTICLE}`,
+      content,
       sourceIds: config.sourceIds,
       tone: config.tone,
       model: 'lfm2.5-350m-q4_k_m',
@@ -81,10 +102,11 @@ export const writingService = {
     });
   },
 
-  async generateXPost(config: GenerateSocialConfig): Promise<WritingOutput> {
-    if (isTauri()) return invokeCmd<WritingOutput>('generate_x_post', { config });
-    await delay(1500);
-    const content = X_POSTS[0] ?? '';
+  async generateXPost(config: GenerateSocialConfig, stream?: WritingStreamHandlers): Promise<WritingOutput> {
+    if (isTauri()) {
+      return withLlmTokens(() => invokeCmd<WritingOutput>('generate_x_post', { config }), stream);
+    }
+    const content = await streamMock(X_POSTS[0] ?? '', stream);
     const output = save({
       id: generateId('wrt'),
       projectId: config.projectId,
@@ -105,41 +127,45 @@ export const writingService = {
     return output;
   },
 
-  async generateThread(config: GenerateSocialConfig): Promise<WritingOutput> {
-    if (isTauri()) return invokeCmd<WritingOutput>('generate_thread', { config });
-    await delay(2000);
+  async generateThread(config: GenerateSocialConfig, stream?: WritingStreamHandlers): Promise<WritingOutput> {
+    if (isTauri()) {
+      return withLlmTokens(() => invokeCmd<WritingOutput>('generate_thread', { config }), stream);
+    }
     const posts = THREAD.slice(0, config.postCount ?? THREAD.length);
+    const content = await streamMock(posts.join('\n\n'), stream);
     const output = save({
       id: generateId('wrt'),
       projectId: config.projectId,
       type: 'thread',
-      content: posts.join('\n\n'),
+      content,
       sourceIds: config.sourceIds,
       tone: config.tone,
       model: 'lfm2.5-350m-q4_k_m',
       status: 'done',
       createdAt: now(),
     });
-    posts.forEach((content, i) => {
+    content.split('\n\n').forEach((post, i) => {
       db.socialPosts.push({
         id: generateId('pst'),
         outputId: output.id,
         index: i + 1,
-        content,
+        content: post,
       });
     });
     return output;
   },
 
-  async generateLinkedIn(config: GenerateSocialConfig): Promise<WritingOutput> {
-    if (isTauri()) return invokeCmd<WritingOutput>('generate_linkedin', { config });
-    await delay(1500);
+  async generateLinkedIn(config: GenerateSocialConfig, stream?: WritingStreamHandlers): Promise<WritingOutput> {
+    if (isTauri()) {
+      return withLlmTokens(() => invokeCmd<WritingOutput>('generate_linkedin', { config }), stream);
+    }
+    const content = await streamMock(LINKEDIN, stream);
     return save({
       id: generateId('wrt'),
       projectId: config.projectId,
       type: 'linkedin',
       title: 'A local workspace for research-backed content',
-      content: LINKEDIN,
+      content,
       sourceIds: config.sourceIds,
       tone: config.tone,
       model: 'lfm2.5-350m-q4_k_m',

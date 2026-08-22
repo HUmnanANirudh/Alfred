@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { Source, SourceType } from '../../types';
 import { isTauri } from '../../services/ipc';
+import { sourceService } from '../../services/sourceService';
 import { videoService } from '../../services/videoService';
 import { transcriptService } from '../../services/transcriptService';
 import { useWorkspaceStore } from '../../store/workspaceStore';

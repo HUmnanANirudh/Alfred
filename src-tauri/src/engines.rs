@@ -5,6 +5,9 @@ use std::time::{Duration, Instant};
 use serde_json::{json, Value};
 use tokio::process::Command;
 use tokio::sync::Mutex;
+use tauri::{AppHandle, Emitter};
+
+use crate::models::LlmTokenEvent;
 
 const LLAMA: &str = "http://127.0.0.1:8765";
 const AUDIO: &str = "http://127.0.0.1:8766";
@@ -120,6 +123,68 @@ pub async fn llama_complete(prompt: &str, n_predict: u32) -> Result<String, Stri
         }
     }
     Err(format!("LFM2.5 returned unusable output: {last}"))
+}
+
+pub async fn llama_stream(prompt: &str, n_predict: u32, app: &AppHandle) -> Result<String, String> {
+    use futures_util::StreamExt;
+
+    let _ = app.emit("llm:start", true);
+    let client = reqwest::Client::new();
+    let res = client
+        .post(format!("{LLAMA}/completion"))
+        .timeout(Duration::from_secs(180))
+        .json(&json!({
+            "prompt": prompt,
+            "n_predict": n_predict,
+            "temperature": 0.3,
+            "stream": true,
+            "stop": ["<|eot_id|>", "<|im_end|>"]
+        }))
+        .send()
+        .await
+        .map_err(|e| format!("llama.cpp is not reachable on :8765 ({e})"))?;
+
+    if !res.status().is_success() {
+        return Err(format!("llama.cpp returned {}", res.status()));
+    }
+
+    let mut stream = res.bytes_stream();
+    let mut buf = String::new();
+    let mut full = String::new();
+
+    while let Some(item) = stream.next().await {
+        let chunk = item.map_err(|e| e.to_string())?;
+        buf.push_str(&String::from_utf8_lossy(&chunk));
+        while let Some(idx) = buf.find('\n') {
+            let mut line = buf[..idx].to_string();
+            buf.drain(..=idx);
+            if line.ends_with('\r') {
+                line.pop();
+            }
+            let line = line.trim();
+            if line.is_empty() || line == "data: [DONE]" || line == "[DONE]" {
+                continue;
+            }
+            let json_str = line.strip_prefix("data:").map(str::trim).unwrap_or(line);
+            let Ok(v) = serde_json::from_str::<Value>(json_str) else {
+                continue;
+            };
+            let Some(token) = v.get("content").and_then(|c| c.as_str()) else {
+                continue;
+            };
+            if token.is_empty() {
+                continue;
+            }
+            full.push_str(token);
+            let _ = app.emit("llm:token", LlmTokenEvent { token: token.to_string() });
+        }
+    }
+
+    if full.trim().is_empty() {
+        return Err("LFM2.5 returned an empty stream.".into());
+    }
+    let _ = app.emit("llm:done", true);
+    Ok(full)
 }
 
 pub fn extract_json(raw: &str) -> Result<Value, String> {

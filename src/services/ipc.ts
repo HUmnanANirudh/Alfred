@@ -1,5 +1,7 @@
 import type { Job } from '../types';
 
+export type LlmTokenEvent = { token: string };
+
 export function isTauri(): boolean {
   return typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
 }
@@ -22,5 +24,23 @@ export async function withJobProgress<T>(
     return await run();
   } finally {
     unlisten();
+  }
+}
+
+export async function withLlmTokens<T>(
+  run: () => Promise<T>,
+  handlers?: { onStart?: () => void; onToken?: (token: string) => void },
+): Promise<T> {
+  if (!isTauri() || !handlers) return run();
+  const { listen } = await import('@tauri-apps/api/event');
+  const unstart = await listen('llm:start', () => handlers.onStart?.());
+  const untok = await listen<LlmTokenEvent>('llm:token', (event) => {
+    handlers.onToken?.(event.payload.token);
+  });
+  try {
+    return await run();
+  } finally {
+    unstart();
+    untok();
   }
 }

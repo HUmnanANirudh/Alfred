@@ -1,9 +1,9 @@
 use crate::db;
 use crate::engines;
 use crate::ids::now;
-use crate::models::{GenerateArticleConfig, GenerateSocialConfig, SocialPost, WritingOutput};
+use crate::models::{GenerateArticleConfig, GenerateSocialConfig, LlmTokenEvent, SocialPost, WritingOutput};
 use crate::AppState;
-use tauri::State;
+use tauri::{AppHandle, Emitter, State};
 
 async fn save_output(
     conn: &turso::Connection,
@@ -49,29 +49,52 @@ fn stitch(context: &str, heading: &str) -> String {
     format!("# {heading}\n\n{body}")
 }
 
-async fn llama_or_stitch(prompt: &str, fallback: String, n: u32) -> String {
-    match engines::llama_complete(prompt, n).await {
-        Ok(raw) => {
-            if let Ok(json) = engines::extract_json(&raw) {
-                if let Some(c) = json.get("content").and_then(|v| v.as_str()) {
-                    return c.to_string();
-                }
-                if let Some(posts) = json.get("posts").and_then(|v| v.as_array()) {
-                    return posts
-                        .iter()
-                        .filter_map(|p| p.get("content").and_then(|v| v.as_str()))
-                        .collect::<Vec<_>>()
-                        .join("\n\n");
-                }
-            }
-            if raw.trim().len() > 40 {
-                raw
-            } else {
-                fallback
+fn title_from_markdown(content: &str, fallback: &str) -> String {
+    for line in content.lines() {
+        let trimmed = line.trim();
+        if let Some(rest) = trimmed.strip_prefix("# ") {
+            let title = rest.trim();
+            if !title.is_empty() {
+                return title.to_string();
             }
         }
-        Err(_) => fallback,
     }
+    fallback.to_string()
+}
+
+async fn llama_stream_or_stitch(app: &AppHandle, prompt: &str, fallback: String, n: u32) -> String {
+    match engines::llama_stream(prompt, n, app).await {
+        Ok(raw) if raw.trim().chars().count() > 40 => raw,
+        Ok(raw) if !raw.trim().is_empty() => raw,
+        _ => {
+            let _ = app.emit("llm:start", true);
+            let _ = app.emit("llm:token", LlmTokenEvent { token: fallback.clone() });
+            let _ = app.emit("llm:done", true);
+            fallback
+        }
+    }
+}
+
+fn posts_from_markdown(writing_type: &str, content: &str, output_id: &str) -> Vec<SocialPost> {
+    let parts: Vec<String> = if writing_type == "thread" {
+        content
+            .split("\n\n")
+            .map(|p| p.trim().to_string())
+            .filter(|p| !p.is_empty())
+            .collect()
+    } else {
+        vec![content.trim().to_string()]
+    };
+    parts
+        .into_iter()
+        .enumerate()
+        .map(|(i, c)| SocialPost {
+            id: db::new_id("pst"),
+            output_id: output_id.to_string(),
+            index: (i + 1) as i64,
+            content: c,
+        })
+        .collect()
 }
 
 #[tauri::command]
@@ -113,6 +136,7 @@ pub async fn list_posts(output_id: String, state: State<'_, AppState>) -> Result
 
 #[tauri::command]
 pub async fn generate_article(
+    app: AppHandle,
     config: GenerateArticleConfig,
     state: State<'_, AppState>,
 ) -> Result<WritingOutput, String> {
@@ -121,7 +145,7 @@ pub async fn generate_article(
         &db::source_context(&conn, &config.project_id, &config.source_ids).await?,
         6000,
     );
-    let title = config
+    let fallback_title = config
         .title
         .clone()
         .filter(|t| !t.trim().is_empty())
@@ -133,12 +157,13 @@ pub async fn generate_article(
             }
         });
     let prompt = format!(
-        "TASK: WRITE_ARTICLE\nFORMAT: JSON {{\"title\":\"...\",\"content\":\"markdown\"}}\nTone: {}\nLength: {}\nTopic: {}\nSources:\n{context}",
+        "Write a markdown article. Start with a single # heading. Output markdown only — no JSON, no preamble, no closing remarks about being an AI.\nTone: {}\nLength: {}\nTopic: {}\n\nUse only these sources:\n{context}",
         config.tone.as_deref().unwrap_or("professional"),
         config.length.as_deref().unwrap_or("medium"),
         config.topic
     );
-    let content = llama_or_stitch(&prompt, stitch(&context, &title), 900).await;
+    let content = llama_stream_or_stitch(&app, &prompt, stitch(&context, &fallback_title), 900).await;
+    let title = title_from_markdown(&content, &fallback_title);
     let output = WritingOutput {
         id: db::new_id("wrt"),
         project_id: config.project_id,
@@ -156,6 +181,7 @@ pub async fn generate_article(
 }
 
 async fn generate_social(
+    app: AppHandle,
     writing_type: &str,
     config: GenerateSocialConfig,
     state: State<'_, AppState>,
@@ -169,12 +195,19 @@ async fn generate_social(
     let count = config.post_count.unwrap_or(if writing_type == "thread" { 7 } else { 1 });
     let topic = config.topic.as_deref().unwrap_or("");
     let style = config.style.as_deref().unwrap_or("");
+    let format = if writing_type == "thread" {
+        format!("Write a numbered thread of {count} posts. Each post is its own paragraph, starting with 1/, 2/, and so on. Markdown/plain text only — no JSON.")
+    } else if writing_type == "linkedin" {
+        "Write one LinkedIn post in markdown. No JSON, no preamble.".to_string()
+    } else {
+        "Write one short social post as plain text. Stay under 280 characters if possible. No JSON, no quotes wrapping the whole post.".to_string()
+    };
     let prompt = format!(
-        "TASK: WRITE_SOCIAL\nFORMAT: JSON {{\"posts\":[{{\"index\":1,\"content\":\"...\"}}]}}\nType: {writing_type}\nCount: {count}\nTone: {}\nTopic: {topic}\nStyle: {style}\n{extra}\nSources:\n{context}",
+        "{format}\nTone: {}\nTopic: {topic}\nStyle: {style}\n{extra}\n\nUse only these sources:\n{context}",
         config.tone.as_deref().unwrap_or("sharp")
     );
     let fallback = stitch(&context, writing_type);
-    let content = llama_or_stitch(&prompt, fallback, 400).await;
+    let content = llama_stream_or_stitch(&app, &prompt, fallback, 400).await;
     let output = WritingOutput {
         id: db::new_id("wrt"),
         project_id: config.project_id,
@@ -187,42 +220,36 @@ async fn generate_social(
         status: "done".into(),
         created_at: now(),
     };
-    let parts: Vec<String> = if writing_type == "thread" {
-        content
-            .split("\n\n")
-            .filter(|p| !p.trim().is_empty())
-            .map(|s| s.to_string())
-            .collect()
-    } else {
-        vec![content]
-    };
-    let posts: Vec<SocialPost> = parts
-        .into_iter()
-        .enumerate()
-        .map(|(i, c)| SocialPost {
-            id: db::new_id("pst"),
-            output_id: output.id.clone(),
-            index: (i + 1) as i64,
-            content: c,
-        })
-        .collect();
+    let posts = posts_from_markdown(writing_type, &content, &output.id);
     save_output(&conn, &output, &posts).await?;
     Ok(output)
 }
 
 #[tauri::command]
-pub async fn generate_x_post(config: GenerateSocialConfig, state: State<'_, AppState>) -> Result<WritingOutput, String> {
-    generate_social("x_post", config, state, "Single post, under 280 characters if possible.").await
+pub async fn generate_x_post(
+    app: AppHandle,
+    config: GenerateSocialConfig,
+    state: State<'_, AppState>,
+) -> Result<WritingOutput, String> {
+    generate_social(app, "x_post", config, state, "Single post.").await
 }
 
 #[tauri::command]
-pub async fn generate_thread(config: GenerateSocialConfig, state: State<'_, AppState>) -> Result<WritingOutput, String> {
-    generate_social("thread", config, state, "Numbered thread.").await
+pub async fn generate_thread(
+    app: AppHandle,
+    config: GenerateSocialConfig,
+    state: State<'_, AppState>,
+) -> Result<WritingOutput, String> {
+    generate_social(app, "thread", config, state, "Numbered thread.").await
 }
 
 #[tauri::command]
-pub async fn generate_linkedin(config: GenerateSocialConfig, state: State<'_, AppState>) -> Result<WritingOutput, String> {
-    generate_social("linkedin", config, state, "Professional LinkedIn post.").await
+pub async fn generate_linkedin(
+    app: AppHandle,
+    config: GenerateSocialConfig,
+    state: State<'_, AppState>,
+) -> Result<WritingOutput, String> {
+    generate_social(app, "linkedin", config, state, "Professional LinkedIn post.").await
 }
 
 #[tauri::command]
