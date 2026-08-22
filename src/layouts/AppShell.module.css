@@ -1,0 +1,19 @@
+.shell {
+  display: flex;
+  flex-direction: column;
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+  background: var(--color-bg-base);
+  font-family: var(--font-sans);
+  color: var(--color-text-primary);
+}
+
+/* Content area fills all space above the status bar */
+.content {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}

@@ -1,0 +1,129 @@
+/* ============================================================
+   Alfred Design System — CSS Custom Properties (tokens.css)
+   Single source of truth for all visual tokens.
+   Usage: import in global.css, never use hardcoded values in components.
+   ============================================================ */
+
+:root {
+  /* ----------------------------------------------------------
+     COLOR — Background layers
+     ---------------------------------------------------------- */
+  --color-bg-base:       #0d0d0d;   /* deepest background — app canvas */
+  --color-bg-surface:    #111111;   /* primary surface — panels, sidebar */
+  --color-bg-elevated:   #1a1a1a;   /* elevated surface — cards, modals */
+  --color-bg-overlay:    #222222;   /* tooltip, dropdown, popover */
+  --color-bg-hover:      #1f1f1f;   /* hover state on interactive elements */
+  --color-bg-active:     #2a2a2a;   /* pressed / active state */
+
+  /* ----------------------------------------------------------
+     COLOR — Borders
+     ---------------------------------------------------------- */
+  --color-border:        #252525;   /* default border */
+  --color-border-subtle: #1e1e1e;   /* very subtle separator */
+  --color-border-focus:  #4a4a4a;   /* focused element border */
+
+  /* ----------------------------------------------------------
+     COLOR — Text
+     ---------------------------------------------------------- */
+  --color-text-primary:   #f0f0f0;  /* primary readable text */
+  --color-text-secondary: #888888;  /* secondary / metadata text */
+  --color-text-tertiary:  #555555;  /* disabled / placeholder text */
+  --color-text-inverse:   #0d0d0d;  /* text on light backgrounds */
+
+  /* ----------------------------------------------------------
+     COLOR — Accent
+     ---------------------------------------------------------- */
+  --color-accent:        #e8e0d0;   /* Alfred's warm off-white — primary accent */
+  --color-accent-subtle: #2a2720;   /* accent tint — used for active nav bg */
+  --color-accent-dim:    #6b6458;   /* muted accent — secondary actions */
+
+  /* ----------------------------------------------------------
+     COLOR — Semantic
+     ---------------------------------------------------------- */
+  --color-success:       #4ade80;   /* step complete, success state */
+  --color-success-dim:   #14532d;
+  --color-error:         #f87171;   /* error state */
+  --color-error-dim:     #7f1d1d;
+  --color-warning:       #fbbf24;   /* warning state */
+  --color-warning-dim:   #78350f;
+  --color-info:          #60a5fa;   /* informational */
+  --color-info-dim:      #1e3a5f;
+
+  /* ----------------------------------------------------------
+     COLOR — Job status indicators
+     ---------------------------------------------------------- */
+  --color-status-done:    var(--color-success);
+  --color-status-running: var(--color-accent);
+  --color-status-pending: var(--color-text-tertiary);
+  --color-status-error:   var(--color-error);
+
+  /* ----------------------------------------------------------
+     COLOR — Local / Privacy indicator
+     ---------------------------------------------------------- */
+  --color-local: #4ade80;           /* green dot for "● Local" */
+
+  /* ----------------------------------------------------------
+     TYPOGRAPHY — Font stacks
+     ---------------------------------------------------------- */
+  --font-sans: "Inter", "SF Pro Text", system-ui, -apple-system, sans-serif;
+  --font-mono: "JetBrains Mono", "SF Mono", "Cascadia Code", monospace;
+
+  /* ----------------------------------------------------------
+     TYPOGRAPHY — Scale
+     ---------------------------------------------------------- */
+  --text-xs:   11px;   /* Metadata, timestamps, badges      | weight 400 | lh 1.5 */
+  --text-sm:   13px;   /* Secondary labels, captions        | weight 400 | lh 1.5 */
+  --text-base: 14px;   /* Body text, default UI             | weight 400 | lh 1.6 */
+  --text-md:   15px;   /* Slightly prominent body           | weight 400 | lh 1.6 */
+  --text-lg:   17px;   /* Section headings                  | weight 500 | lh 1.4 */
+  --text-xl:   20px;   /* Page titles                       | weight 600 | lh 1.3 */
+  --text-2xl:  26px;   /* Major headings                    | weight 600 | lh 1.2 */
+  --text-3xl:  34px;   /* Empty state headline              | weight 700 | lh 1.1 */
+
+  /* ----------------------------------------------------------
+     SPACING — 8px base grid
+     ---------------------------------------------------------- */
+  --space-1:   4px;
+  --space-2:   8px;
+  --space-3:  12px;
+  --space-4:  16px;
+  --space-5:  20px;
+  --space-6:  24px;
+  --space-8:  32px;
+  --space-10: 40px;
+  --space-12: 48px;
+  --space-16: 64px;
+
+  /* ----------------------------------------------------------
+     LAYOUT — Dimensions
+     ---------------------------------------------------------- */
+  --sidebar-width:       220px;
+  --sidebar-collapsed:    48px;
+  --sources-panel-width: 280px;
+  --content-max-width:   900px;   /* max width of main content column */
+  --modal-width-sm:      420px;
+  --modal-width-md:      560px;
+  --modal-width-lg:      720px;
+
+  /* ----------------------------------------------------------
+     BORDER RADIUS — Conservative rounding
+     ---------------------------------------------------------- */
+  --radius-sm:  4px;   /* inputs, badges, tags */
+  --radius-md:  6px;   /* buttons, cards */
+  --radius-lg:  8px;   /* modals, panels */
+  --radius-xl: 12px;   /* large panels (used sparingly) */
+
+  /* ----------------------------------------------------------
+     SHADOWS — Minimal. Modals and floating elements only.
+     ---------------------------------------------------------- */
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.5);
+  --shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.6);
+
+  /* ----------------------------------------------------------
+     MOTION + CHROME
+     ---------------------------------------------------------- */
+  --transition-fast: 120ms ease;
+  --transition-base: 150ms ease;
+  --statusbar-height: 28px;
+}
