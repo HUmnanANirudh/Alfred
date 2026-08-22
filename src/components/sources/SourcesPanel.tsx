@@ -4,7 +4,6 @@ import { useUiStore } from '../../store/uiStore';
 import { useWorkspaceStore } from '../../store/workspaceStore';
 import { formatDate } from '../../utils/format';
 import { Button } from '../ui/Button';
-import { SourceIcon } from './SourceIcon';
 import styles from './SourcesPanel.module.css';
 
 function sourceKind(type: string) {

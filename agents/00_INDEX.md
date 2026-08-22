@@ -20,6 +20,7 @@
 | 08 | `08_ROADMAP.md` | Phase 1 → 4 milestones and done criteria |
 | 09 | `09_DEV_GUIDE.md` | Local setup, commands, conventions, DOs and DON'Ts |
 | 10 | `10_AI_ENGINE.md` | **AI architecture bible** — every model, engine, prompt contract, performance |
+| 11 | `11_SKILLS.md` | **Skills reference** — how to use `tauri-development` and `turso-db` skills, IPC patterns, DB schema |
 
 ---
 
@@ -31,20 +32,23 @@
 4. **Checking scope?** `07_FEATURE_MAP.md` + `08_ROADMAP.md` tell you what is and isn't in scope.
 5. **Setting up locally?** `09_DEV_GUIDE.md` is your quickstart.
 6. **Working on AI/models?** `10_AI_ENGINE.md` is the definitive reference.
+7. **Writing Tauri IPC or database code?** **Read `11_SKILLS.md` first — it tells you which skill to activate.**
 
 ---
 
 ## Technology Stack (locked)
 
 ```
-UI           React 19 + TypeScript 5.8 + Vite 7
-Desktop      Tauri 2
+UI            React 19 + TypeScript 5.8 + Vite 7
+Desktop       Tauri 2
 Orchestration Rust
-Text AI      llama.cpp → LFM2.5-350M (default), SmolVLM2-256M (vision)
-Audio AI     audio.cpp → Qwen3-ASR, PocketTTS, Chatterbox, SeedVC, Silero VAD, Qwen3-Aligner
-Media        FFmpeg (clips, captions, frames) + yt-dlp (YouTube acquisition)
-Database     libSQL / SQLite (local file — alfred.db)
-Models       GGUF format throughout
+Text AI       llama.cpp → LFM2.5-350M (default), SmolVLM2-256M (vision)
+Audio AI      audio.cpp → Qwen3-ASR, PocketTTS, Chatterbox, SeedVC, Silero VAD, Qwen3-Aligner
+Media         FFmpeg (clips, captions, frames) + yt-dlp (YouTube acquisition)
+Database      Turso (Limbo) — embedded SQLite-compatible, Rust-native (alfred.db, local-only)
+              Turso Cloud = opt-in sync only, never the default
+Models        GGUF format throughout
+Skills        .agents/skills/tauri-development/ + .agents/skills/turso-db/
 ```
 
 ---
@@ -59,8 +63,9 @@ Models       GGUF format throughout
 6. **No Python. No FastAPI. No cloud AI APIs.** The AI stack is llama.cpp + audio.cpp — native C++ engines managed by Rust.
 7. **LFM2.5 gets narrow, structured jobs.** Always prompt for JSON. Always validate JSON. Retry on malformed output.
 8. **audio.cpp covers all audio.** ASR, TTS, voice cloning, VAD, alignment, conversion — one native binary, zero Conda environments.
-9. **libSQL is the default DB.** Turso Cloud is opt-in and never the default. Alfred's privacy claim requires local-only data.
+9. **Turso is the database.** Use the `turso` Rust crate — never `libsql`, never `rusqlite`. Local `alfred.db` is the default. Turso Cloud is opt-in sync only, never required.
 10. **Product feel over feature count.** Ship fewer things that feel premium over many things that feel rushed.
+11. **Read the skill before writing the code.** Before touching Tauri IPC or DB queries, read `11_SKILLS.md` and activate the relevant skill (`tauri-development` or `turso-db`).
 
 ---
 

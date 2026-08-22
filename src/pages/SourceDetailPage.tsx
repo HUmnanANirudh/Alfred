@@ -1,6 +1,5 @@
 import { useNavigate, useParams } from 'react-router-dom';
 import { PageHeader } from '../components/layout/PageHeader';
-import { SourceIcon } from '../components/sources/SourceIcon';
 import { Button } from '../components/ui/Button';
 import { sourceService } from '../services/sourceService';
 import { toast } from '../store/toastStore';

@@ -4,7 +4,6 @@ import { useWorkspaceStore } from '../../store/workspaceStore';
 import { cn } from '../../utils/cn';
 import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
-import { SourceIcon } from './SourceIcon';
 import styles from './SourceSelector.module.css';
 
 interface Props {
