@@ -30,7 +30,7 @@ export function SourcesPanel() {
       <div className={styles.list}>
         {sources.map((source) => (
           <Link key={source.id} to={`/projects/${id}/sources/${source.id}`} className={styles.item}>
-            <SourceIcon type={source.type} />
+            <span className={styles.title}>{source.title}</span>
             <div className={styles.meta}>
               <span className={styles.name}>{source.title}</span>
               <span className={styles.sub}>{sourceKind(source.type)} · {formatDate(source.createdAt)}</span>

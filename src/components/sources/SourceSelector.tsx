@@ -82,7 +82,7 @@ export function SourceSelector({ selected, onChange, filterTypes, variant = 'all
               className={cn(styles.item, on && styles.on)}
               onClick={() => toggle(source.id)}
             >
-              <SourceIcon type={source.type} />
+              <span className={styles.typeLabel}>{source.type}</span>
               <span className={styles.title}>{source.title}</span>
               <span className={styles.kind}>{kindLabel(source)}</span>
               <span className={styles.check} aria-hidden>{on ? '✓' : ''}</span>

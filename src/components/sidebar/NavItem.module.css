@@ -27,7 +27,7 @@
 
 .item:hover {
   color: var(--color-text-primary);
-  background: var(--color-bg-hover);
+  background: var(--color-accent);
 }
 
 .item:focus-visible {
@@ -36,13 +36,13 @@
 }
 
 .item.active {
-  color: var(--color-accent);
-  background: var(--color-accent-subtle);
+  color: var(--color-text-primary);
+  background: var(--color-accent);
 }
 
 .item.active:hover {
-  color: var(--color-accent);
-  background: var(--color-accent-subtle);
+  color: var(--color-text-primary);
+  background: var(--color-accent);
 }
 
 /* Sub-items: slightly smaller, indented by default via paddingLeft inline style */

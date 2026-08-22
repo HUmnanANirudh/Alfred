@@ -56,8 +56,9 @@ export function SourceDetailPage() {
         }
       />
       <p className={styles.muted} style={{ display: 'flex', gap: 12, alignItems: 'center', marginBottom: 24 }}>
-        <SourceIcon type={source.type} />
-        <span>{source.type}</span>
+        <div className={styles.typeBadge}>
+          <span>{source.type}</span>
+        </div>
         {source.wordCount != null && <span>{formatWordCount(source.wordCount)}</span>}
         <span>{formatDate(source.createdAt)}</span>
       </p>

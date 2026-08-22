@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { Hash } from 'lucide-react';
-import { PageHeader } from '../components/layout/PageHeader';
 import { SourceSelector } from '../components/sources/SourceSelector';
 import { SocialPostCard } from '../components/writing/SocialPostCard';
 import { ThreadEditor } from '../components/writing/ThreadEditor';
@@ -73,7 +72,6 @@ export function WritingXPage() {
 
   return (
     <div className={styles.page}>
-      <PageHeader title="X" />
       <Tabs
         tabs={[{ id: 'post', label: 'Short post' }, { id: 'thread', label: 'Thread' }]}
         value={tab}
@@ -92,12 +90,14 @@ export function WritingXPage() {
             projectId={id}
             selected={sourceIds}
             onChange={setSourceIds}
-            emptyAction={{ label: 'Add source', onClick: () => setAdd(true) }}
           />
         )}
-        <Button variant="primary" loading={busy} disabled={sourceIds.length === 0} onClick={generate}>
-          {tab === 'post' ? 'Write a short X post' : 'Create a thread'}
-        </Button>
+        <div style={{ display: 'flex', gap: 'var(--space-2)', marginTop: 'var(--space-2)' }}>
+          <Button variant="secondary" onClick={() => setAdd(true)}>Add source</Button>
+          <Button variant="primary" loading={busy} disabled={sourceIds.length === 0} onClick={generate}>
+            {tab === 'post' ? 'Write a short X post' : 'Create a thread'}
+          </Button>
+        </div>
       </div>
 
       {visiblePosts.length === 0 && !busy && (

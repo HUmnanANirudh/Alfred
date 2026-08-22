@@ -17,6 +17,6 @@
 }
 
 .active {
-  color: var(--color-accent);
+  color: var(--color-text-primary);
   border-bottom-color: var(--color-accent);
 }

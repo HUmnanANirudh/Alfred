@@ -78,7 +78,19 @@ export function VideoPage() {
 
   return (
     <div className={styles.page}>
-      <PageHeader title="Video" />
+      <PageHeader
+        title="Video"
+        actions={
+          id ? (
+            <>
+              <Button variant="secondary" onClick={() => setAdd(true, 'video')}>Add source</Button>
+              <Button variant="primary" disabled={!chosen || busy} onClick={() => setModalOpen(true)}>
+                Generate shorts
+              </Button>
+            </>
+          ) : null
+        }
+      />
 
       {id && (
         <div className={styles.stack}>
@@ -87,11 +99,7 @@ export function VideoPage() {
             selected={sourceIds}
             onChange={setSourceIds}
             variant="video"
-            emptyAction={{ label: 'Add source', onClick: () => setAdd(true, 'video') }}
           />
-          <Button variant="primary" disabled={!chosen || busy} onClick={() => setModalOpen(true)}>
-            Generate shorts
-          </Button>
         </div>
       )}
 

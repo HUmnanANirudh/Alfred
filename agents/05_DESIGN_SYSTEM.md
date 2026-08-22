@@ -12,31 +12,31 @@
 
 ```css
 /* Background layers */
---color-bg-base:       #0d0d0d;   /* deepest background — app canvas */
---color-bg-surface:    #111111;   /* primary surface — panels, sidebar */
---color-bg-elevated:   #1a1a1a;   /* elevated surface — cards, modals */
---color-bg-overlay:    #222222;   /* tooltip, dropdown, popover */
---color-bg-hover:      #1f1f1f;   /* hover state on interactive elements */
---color-bg-active:     #2a2a2a;   /* pressed / active state */
+--color-bg-base:       #1d1d1b;   /* Dark Grey — deepest background */
+--color-bg-surface:    #111111;   /* Secondary Dark Gray — panels, sidebar */
+--color-bg-elevated:   #2a2a2a;   /* Slightly lighter grey — cards, modals */
+--color-bg-overlay:    rgba(0, 0, 0, 0.6);   /* modal overlay */
+--color-bg-hover:      #333333;   /* hover state on interactive elements */
+--color-bg-active:     #404040;   /* pressed / active state */
 
 /* Borders */
---color-border:        #252525;   /* default border */
---color-border-subtle: #1e1e1e;   /* very subtle separator */
---color-border-focus:  #4a4a4a;   /* focused element border */
+--color-border:        #3a3a3a;   /* default border */
+--color-border-subtle: #2a2a2a;   /* very subtle separator */
+--color-border-focus:  #c2121a;   /* focused element border (Vivid Red) */
 
 /* Text */
---color-text-primary:  #f0f0f0;   /* primary readable text */
---color-text-secondary:#888888;   /* secondary / metadata text */
---color-text-tertiary: #555555;   /* disabled / placeholder text */
---color-text-inverse:  #0d0d0d;   /* text on light backgrounds */
+--color-text-primary:  #ffffff;   /* White — primary readable text */
+--color-text-secondary:#dad9d9;   /* Light Grey — secondary / metadata text */
+--color-text-tertiary: #888888;   /* disabled / placeholder text */
+--color-text-inverse:  #ffffff;   /* text on accent backgrounds */
 ```
 
 ### Accent
 
 ```css
---color-accent:        #e8e0d0;   /* Alfred's warm off-white — primary accent */
---color-accent-subtle: #2a2720;   /* accent tint — used for active nav bg */
---color-accent-dim:    #6b6458;   /* muted accent — secondary actions */
+--color-accent:        #c2121a;   /* Vivid Red — primary accent */
+--color-accent-subtle: #3d0508;   /* accent tint — used for active nav bg */
+--color-accent-dim:    #8f0d13;   /* muted accent — secondary actions */
 ```
 
 ### Semantic

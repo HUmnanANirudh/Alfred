@@ -21,7 +21,7 @@
   font-size: var(--text-sm);
   font-variant: small-caps;
   letter-spacing: 0.12em;
-  color: var(--color-accent);
+  color: var(--color-text-primary);
   font-weight: 600;
 }
 

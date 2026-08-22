@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { PenLine } from 'lucide-react';
-import { PageHeader } from '../components/layout/PageHeader';
 import { SourceSelector } from '../components/sources/SourceSelector';
 import { ArticleEditor } from '../components/writing/ArticleEditor';
 import { Button } from '../components/ui/Button';
@@ -82,7 +81,6 @@ export function WritingArticlePage() {
 
   return (
     <div className={styles.page}>
-      <PageHeader title="Write an Article" />
       <div className={styles.stack}>
         <Input label="Title" placeholder="The Future of AI" value={title} onChange={(e) => setTitle(e.target.value)} />
         <Input
@@ -108,10 +106,12 @@ export function WritingArticlePage() {
             projectId={id}
             selected={sourceIds}
             onChange={setSourceIds}
-            emptyAction={{ label: 'Add source', onClick: () => setAdd(true) }}
           />
         )}
-        <Button variant="primary" loading={busy} disabled={sourceIds.length === 0} onClick={generate}>Generate Article</Button>
+        <div style={{ display: 'flex', gap: 'var(--space-2)', marginTop: 'var(--space-2)' }}>
+          <Button variant="secondary" onClick={() => setAdd(true)}>Add source</Button>
+          <Button variant="primary" loading={busy} disabled={sourceIds.length === 0} onClick={generate}>Generate Article</Button>
+        </div>
       </div>
 
       {!current && !busy && (

@@ -71,7 +71,23 @@ export function AudioPage() {
 
   return (
     <div className={styles.page}>
-      <PageHeader title="Audio" />
+      <PageHeader
+        title="Audio"
+        actions={
+          id ? (
+            <>
+              <Button variant="secondary" onClick={() => setAdd(true, 'text')}>Add source</Button>
+              <Button
+                variant="primary"
+                disabled={sourceIds.length === 0 || busy}
+                onClick={() => setVoiceOpen(true)}
+              >
+                Generate audio
+              </Button>
+            </>
+          ) : null
+        }
+      />
 
       <div className={styles.stack}>
         {id && (
@@ -80,16 +96,8 @@ export function AudioPage() {
             selected={sourceIds}
             onChange={setSourceIds}
             variant="audio"
-            emptyAction={{ label: 'Add source', onClick: () => setAdd(true, 'text') }}
           />
         )}
-        <Button
-          variant="primary"
-          disabled={sourceIds.length === 0 || busy}
-          onClick={() => setVoiceOpen(true)}
-        >
-          Generate audio
-        </Button>
       </div>
 
       {job && busy && (

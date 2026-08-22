@@ -47,12 +47,12 @@
 
 .tab:hover {
   color: var(--color-text-primary);
-  background: var(--color-bg-hover);
+  background: var(--color-accent);
 }
 
 .tabOn {
-  color: var(--color-accent);
-  background: var(--color-accent-subtle);
+  color: var(--color-text-primary);
+  background: var(--color-accent);
 }
 
 .sub {
