@@ -14,14 +14,11 @@ import { Tabs } from '../ui/Tabs';
 import { Textarea } from '../ui/Textarea';
 import styles from './AddSourceModal.module.css';
 
-const VIDEO_TABS = [
-  { id: 'youtube', label: 'YouTube URL' },
-  { id: 'video', label: 'From device' },
-];
-
-const WRITING_TABS = [
+const TABS = [
   { id: 'article', label: 'Article URL' },
-  { id: 'text', label: 'Paste content' },
+  { id: 'text', label: 'Paste' },
+  { id: 'youtube', label: 'YouTube' },
+  { id: 'video', label: 'From device' },
 ];
 
 async function refreshMedia(projectId: string) {
@@ -35,13 +32,10 @@ async function refreshMedia(projectId: string) {
 
 export function AddSourceModal({ projectId }: { projectId: string }) {
   const open = useUiStore((s) => s.addSourceOpen);
-  const intake = useUiStore((s) => s.sourceIntake);
   const setOpen = useUiStore((s) => s.setAddSourceOpen);
   const addSource = useWorkspaceStore((s) => s.addSource);
   const navigate = useNavigate();
-
-  const tabs = intake === 'video' ? VIDEO_TABS : WRITING_TABS;
-  const [tab, setTab] = useState<SourceType>('youtube');
+  const [tab, setTab] = useState<SourceType>('article');
   const [url, setUrl] = useState('');
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
@@ -51,13 +45,13 @@ export function AddSourceModal({ projectId }: { projectId: string }) {
 
   useEffect(() => {
     if (!open) return;
-    setTab(intake === 'video' ? 'youtube' : 'article');
+    setTab('article');
     setUrl('');
     setTitle('');
     setContent('');
     setFileName('');
     setFailReason('');
-  }, [open, intake]);
+  }, [open]);
 
   function reset() {
     setUrl('');
@@ -116,7 +110,7 @@ export function AddSourceModal({ projectId }: { projectId: string }) {
     toast.success('Video added. Transcript is on the source — you can generate shorts now.');
     setOpen(false);
     reset();
-    if (video) {
+    if (video && window.location.pathname.includes('/video')) {
       navigate(`/projects/${projectId}/video/shorts?video=${video.id}`);
     }
   }
@@ -200,7 +194,7 @@ export function AddSourceModal({ projectId }: { projectId: string }) {
     <Modal
       isOpen={open}
       onClose={close}
-      title={intake === 'video' ? 'Add video' : 'Add source'}
+      title="Add source"
       size="md"
       footer={
         <>
@@ -210,7 +204,7 @@ export function AddSourceModal({ projectId }: { projectId: string }) {
       }
     >
       <div className={styles.body}>
-        <Tabs tabs={tabs} value={tab} onChange={(id) => { setTab(id as SourceType); setFailReason(''); }} />
+        <Tabs tabs={TABS} value={tab} onChange={(id) => { setTab(id as SourceType); setFailReason(''); }} />
         {tab === 'article' && (
           <Input
             label="Article URL"

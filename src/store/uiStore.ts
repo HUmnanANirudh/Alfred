@@ -1,24 +1,23 @@
 import { create } from 'zustand';
 
-export type SourceIntake = 'video' | 'writing';
-
 interface UiState {
   commandOpen: boolean;
   createProjectOpen: boolean;
   addSourceOpen: boolean;
-  sourceIntake: SourceIntake;
+  menuOpen: boolean;
   setCommandOpen: (open: boolean) => void;
   setCreateProjectOpen: (open: boolean) => void;
-  setAddSourceOpen: (open: boolean, intake?: SourceIntake) => void;
+  setAddSourceOpen: (open: boolean) => void;
+  setMenuOpen: (open: boolean) => void;
 }
 
 export const useUiStore = create<UiState>((set) => ({
   commandOpen: false,
   createProjectOpen: false,
   addSourceOpen: false,
-  sourceIntake: 'video',
+  menuOpen: false,
   setCommandOpen: (commandOpen) => set({ commandOpen }),
   setCreateProjectOpen: (createProjectOpen) => set({ createProjectOpen }),
-  setAddSourceOpen: (addSourceOpen, sourceIntake) =>
-    set(sourceIntake ? { addSourceOpen, sourceIntake } : { addSourceOpen }),
+  setAddSourceOpen: (addSourceOpen) => set({ addSourceOpen }),
+  setMenuOpen: (menuOpen) => set({ menuOpen }),
 }));

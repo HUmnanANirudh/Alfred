@@ -38,11 +38,7 @@ export function SourceSelector({ selected, onChange, filterTypes, emptyAction }:
   if (items.length === 0 && !query) {
     return (
       <div className={styles.emptyBox}>
-        <p className={styles.empty}>
-          {filterTypes?.includes('article')
-            ? 'Add an article URL or paste content.'
-            : 'Add a YouTube URL or a video from this device.'}
-        </p>
+        <p className={styles.empty}>Add a source to this project.</p>
         {emptyAction && (
           <Button variant="secondary" size="sm" onClick={emptyAction.onClick}>
             {emptyAction.label}

@@ -1,0 +1,58 @@
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 350;
+  background: rgba(0, 0, 0, 0.55);
+}
+
+.drawer {
+  width: var(--sidebar-width);
+  height: 100%;
+  background: var(--color-bg-surface);
+  border-right: 1px solid var(--color-border);
+  box-shadow: var(--shadow-lg);
+  display: flex;
+  flex-direction: column;
+  padding: var(--space-4) var(--space-2);
+}
+
+.wordmark {
+  padding: var(--space-2) var(--space-3) var(--space-4);
+  font-size: var(--text-sm);
+  font-variant: small-caps;
+  letter-spacing: 0.12em;
+  color: var(--color-accent);
+  font-weight: 600;
+}
+
+.switcher {
+  padding: 0 var(--space-1) var(--space-3);
+}
+
+.nav {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--space-2);
+  border-top: 1px solid var(--color-border-subtle);
+}
+
+.link {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
+  font-size: var(--text-sm);
+  color: var(--color-text-secondary);
+}
+
+.link:hover {
+  background: var(--color-bg-hover);
+  color: var(--color-text-primary);
+}
+
+.active {
+  color: var(--color-accent);
+  background: var(--color-accent-subtle);
+}

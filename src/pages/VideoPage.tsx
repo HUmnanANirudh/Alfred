@@ -15,7 +15,7 @@ export function VideoPage() {
   const navigate = useNavigate();
 
   function addVideo() {
-    setAdd(true, 'video');
+    setAdd(true);
   }
 
   return (

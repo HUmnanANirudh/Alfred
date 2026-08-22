@@ -85,13 +85,12 @@ export function WritingXPage() {
         </Select>
         {id && (
           <div>
-            <p className={styles.muted} style={{ marginBottom: 8 }}>Sources — article URL or pasted text</p>
+            <p className={styles.muted} style={{ marginBottom: 8 }}>Project sources</p>
             <SourceSelector
               projectId={id}
               selected={sourceIds}
               onChange={setSourceIds}
-              filterTypes={['article', 'text']}
-              emptyAction={{ label: 'Add URL or paste', onClick: () => setAdd(true, 'writing') }}
+              emptyAction={{ label: 'Add source', onClick: () => setAdd(true) }}
             />
           </div>
         )}

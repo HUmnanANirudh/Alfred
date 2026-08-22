@@ -30,16 +30,12 @@ export function CommandPalette() {
     };
     const items: Command[] = [
       { id: 'new-project', label: 'Commission a Project', hint: '⌘N', run: () => { setOpen(false); setCreate(true); } },
-      { id: 'voices', label: 'Open Voices', run: go('/voices') },
+      { id: 'voices', label: 'Open Voices', run: go(activeId ? `/projects/${activeId}/voices` : '/voices') },
     ];
     if (activeId) {
       const base = `/projects/${activeId}`;
       items.splice(1, 0,
-        { id: 'add-source', label: 'Add Source', hint: '⇧⌘A', run: () => {
-          setOpen(false);
-          const writing = window.location.pathname.includes('/writing');
-          setAddSource(true, writing ? 'writing' : 'video');
-        } },
+        { id: 'add-source', label: 'Add Source', hint: '⇧⌘A', run: () => { setOpen(false); setAddSource(true); } },
         { id: 'create-short', label: 'Create Short', run: go(`${base}/video/shorts`) },
         { id: 'generate-audio', label: 'Generate Audio', run: go(`${base}/audio`) },
         { id: 'write-article', label: 'Write Article', run: go(`${base}/writing/article`) },

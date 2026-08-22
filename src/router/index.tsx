@@ -9,6 +9,7 @@ import { SourceDetailPage } from '../pages/SourceDetailPage';
 import { SourcesPage } from '../pages/SourcesPage';
 import { VideoPage } from '../pages/VideoPage';
 import { VoicesPage } from '../pages/VoicesPage';
+import { VoicesRedirect } from '../pages/VoicesRedirect';
 import { WritingArticlePage } from '../pages/WritingArticlePage';
 import { WritingLinkedInPage } from '../pages/WritingLinkedInPage';
 import { WritingXPage } from '../pages/WritingXPage';
@@ -23,7 +24,7 @@ export const router = createBrowserRouter([
       {
         element: <GlobalLayout />,
         children: [
-          { path: '/voices', element: <VoicesPage /> },
+          { path: '/voices', element: <VoicesRedirect /> },
         ],
       },
       {
@@ -36,6 +37,7 @@ export const router = createBrowserRouter([
           { path: 'video', element: <VideoPage /> },
           { path: 'video/shorts', element: <ShortsPage /> },
           { path: 'audio', element: <AudioPage /> },
+          { path: 'voices', element: <VoicesPage /> },
           { path: 'writing', element: <Navigate to="article" replace /> },
           { path: 'writing/article', element: <WritingArticlePage /> },
           { path: 'writing/x', element: <WritingXPage /> },

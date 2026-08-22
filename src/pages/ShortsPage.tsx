@@ -106,7 +106,7 @@ export function ShortsPage() {
               title="No shorts generated yet"
               description="Add a YouTube URL or a video from this device. The transcript is stored on that source, then you can generate shorts."
               actionLabel="Add video"
-              onAction={() => useUiStore.getState().setAddSourceOpen(true, 'video')}
+              onAction={() => useUiStore.getState().setAddSourceOpen(true)}
             />
           ) : (
             <div className={styles.stack}>
