@@ -73,7 +73,7 @@ export function SourceDetailPage() {
         actions={
           <>
             {isVideoSource && video && !transcript && video.filePath && (
-              <Button variant="primary" disabled={isGenerating || (engineHealth != null && !engineHealth.audio)} onClick={async () => {
+              <Button variant="primary" disabled={isGenerating} onClick={async () => {
                 setIsGenerating(true);
                 try {
                   toast.info('Generating transcript...');

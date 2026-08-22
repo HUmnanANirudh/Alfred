@@ -720,6 +720,30 @@ fn find_gguf(dir: &Path) -> Option<String> {
 }
 
 /// Start llama-server / audiocpp_server when they are on PATH and not already healthy.
+/// Try to start audio.cpp if it is not already running.
+/// Called on-demand before transcription so the user doesn't have to manually start it.
+pub async fn try_start_audio() -> Result<(), String> {
+    if audio_up().await {
+        return Ok(());
+    }
+    let tools = tooling().await;
+    if !tools.audiocpp_server {
+        return Err("audio.cpp (audiocpp_server) is not installed on this machine. Install it and add it to PATH.".into());
+    }
+    Command::new("audiocpp_server")
+        .args(["--host", "127.0.0.1", "--port", "8766"])
+        .kill_on_drop(true)
+        .spawn()
+        .map_err(|e| format!("Failed to start audiocpp_server: {e}"))?;
+    // Give it time to bind to the port
+    tokio::time::sleep(Duration::from_secs(2)).await;
+    if audio_up().await {
+        Ok(())
+    } else {
+        Err("audiocpp_server started but is not responding on port 8766. Check its logs.".into())
+    }
+}
+
 pub async fn ensure_sidecars(
     data_dir: &Path,
     llama: &Mutex<Option<tokio::process::Child>>,

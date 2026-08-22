@@ -77,6 +77,10 @@ pub async fn generate_transcript(
     jobs::emit(&app, &job);
 
     let asr = if wav.exists() {
+        // Try to auto-start audio.cpp if it's not running
+        if let Err(e) = engines::try_start_audio().await {
+            eprintln!("[transcript] auto-start audio: {e}");
+        }
         match engines::audio_transcribe(&wav.to_string_lossy()).await {
             Ok(t) => t,
             Err(e) => {
