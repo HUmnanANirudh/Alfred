@@ -8,6 +8,8 @@ import { EmptyWorkspace } from '../pages/EmptyWorkspace';
 import { SourceDetailPage } from '../pages/SourceDetailPage';
 import { SourcesPage } from '../pages/SourcesPage';
 import { VideoPage } from '../pages/VideoPage';
+import { TranscriptsPage } from '../pages/TranscriptsPage';
+import { TranscriptDetailPage } from '../pages/TranscriptDetailPage';
 import { VoicesPage } from '../pages/VoicesPage';
 import { VoicesRedirect } from '../pages/VoicesRedirect';
 import { WritingArticlePage } from '../pages/WritingArticlePage';
@@ -38,7 +40,8 @@ export const router = createBrowserRouter([
           { path: 'sources', element: <SourcesPage /> },
           { path: 'sources/:srcId', element: <SourceDetailPage /> },
           { path: 'video', element: <VideoPage /> },
-          { path: 'video/shorts', element: <Navigate to="../video" replace /> },
+          { path: 'video/transcripts', element: <TranscriptsPage /> },
+          { path: 'video/transcripts/:trsId', element: <TranscriptDetailPage /> },
           { path: 'audio', element: <AudioPage /> },
           { path: 'audio/:audId', element: <AudioDraftPage /> },
           { path: 'voices', element: <VoicesPage /> },

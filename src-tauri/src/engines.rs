@@ -210,6 +210,7 @@ fn looks_like_json(s: &str) -> bool {
     (t.starts_with('{') && t.contains('}')) || (t.starts_with('[') && t.contains(']'))
 }
 
+#[allow(dead_code)]
 pub async fn audio_tts(script: &str, out_path: &str) -> Result<(), String> {
     audio_tts_with(script, out_path, None, None).await
 }
@@ -377,7 +378,7 @@ fn parse_asr_segments(body: &Value) -> Vec<Value> {
 
 pub async fn ytdlp_info(url: &str) -> Result<Value, String> {
     let output = Command::new("yt-dlp")
-        .args(["-j", "--no-download", "--no-warnings", url])
+        .args(["-j", "--no-download", "--no-warnings", "--no-playlist", "--no-check-certificates", url])
         .output()
         .await
         .map_err(|_| "yt-dlp is not installed on this machine.".to_string())?;
@@ -394,8 +395,10 @@ pub async fn ytdlp_info(url: &str) -> Result<Value, String> {
 pub async fn ytdlp_download(url: &str, out_template: &str) -> Result<(), String> {
     let status = Command::new("yt-dlp")
         .args([
+            "--no-playlist",
+            "--no-check-certificates",
             "-f",
-            "bv*[ext=mp4]+ba[ext=m4a]/b[ext=mp4]/best",
+            "bv*[vcodec^=avc]+ba[ext=m4a]/b[ext=mp4]/best",
             "-o",
             out_template,
             url,
@@ -425,6 +428,7 @@ pub async fn ffmpeg_extract_wav(input: &str, output: &str) -> Result<(), String>
     }
 }
 
+#[allow(dead_code)]
 pub async fn ffmpeg_cut_clip(input: &str, start: f64, duration: f64, output: &str) -> Result<(), String> {
     ffmpeg_cut_clip_layered(input, None, start, duration, output).await
 }

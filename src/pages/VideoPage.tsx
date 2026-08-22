@@ -12,12 +12,14 @@ import { shortService } from '../services/shortService';
 import { toast } from '../store/toastStore';
 import { useUiStore } from '../store/uiStore';
 import { useWorkspaceStore } from '../store/workspaceStore';
+import { useNavigate } from 'react-router-dom';
 import type { Job } from '../types';
 import styles from './page.module.css';
 
 export function VideoPage() {
   const { id } = useParams<{ id: string }>();
   const videos = useWorkspaceStore((s) => s.videos);
+  const transcripts = useWorkspaceStore((s) => s.transcripts);
   const shorts = useWorkspaceStore((s) => s.shorts);
   const setShorts = useWorkspaceStore((s) => s.setShorts);
   const setActiveJob = useWorkspaceStore((s) => s.setActiveJob);
@@ -27,6 +29,7 @@ export function VideoPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [job, setJob] = useState<Job | null>(null);
   const [busy, setBusy] = useState(false);
+  const navigate = useNavigate();
 
   useEffect(() => {
     if (sourceIds.length > 0) return;
@@ -84,6 +87,11 @@ export function VideoPage() {
           id ? (
             <>
               <Button variant="secondary" onClick={() => setAdd(true, 'video')}>Add source</Button>
+              {transcripts.length > 0 && (
+                <Button variant="secondary" onClick={() => navigate(`/projects/${id}/video/transcripts`)}>
+                  Transcripts
+                </Button>
+              )}
               <Button variant="primary" disabled={!chosen || busy} onClick={() => setModalOpen(true)}>
                 Generate shorts
               </Button>

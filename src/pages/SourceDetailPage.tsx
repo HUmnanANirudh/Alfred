@@ -1,11 +1,14 @@
+import { useEffect, useState, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { PageHeader } from '../components/layout/PageHeader';
 import { Button } from '../components/ui/Button';
 import { sourceService } from '../services/sourceService';
+import { transcriptService } from '../services/transcriptService';
 import { toast } from '../store/toastStore';
 import { hydrateWorkspace } from '../store/hydrate';
 import { useWorkspaceStore } from '../store/workspaceStore';
 import { formatDate, formatDuration, formatWordCount } from '../utils/format';
+import { assetUrl } from '../services/ipc';
 import styles from './page.module.css';
 
 export function SourceDetailPage() {
@@ -14,6 +17,11 @@ export function SourceDetailPage() {
   const videos = useWorkspaceStore((s) => s.videos);
   const transcripts = useWorkspaceStore((s) => s.transcripts);
   const navigate = useNavigate();
+  
+  const [videoUrl, setVideoUrl] = useState('');
+  const [currentTime, setCurrentTime] = useState(0);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const videoRef = useRef<HTMLVideoElement>(null);
 
   const video = videos.find((v) => v.sourceId === source?.id);
   const transcriptMeta = source?.metadata?.type === 'transcript' ? source.metadata : undefined;
@@ -21,6 +29,16 @@ export function SourceDetailPage() {
     ? transcripts.find((t) => t.videoId === transcriptMeta.videoId)
     : transcripts.find((t) => t.videoId === video?.id);
   const isVideoSource = source?.type === 'youtube' || source?.type === 'video';
+
+  const videoToPlay = transcriptMeta
+    ? videos.find((v) => v.id === transcriptMeta.videoId)
+    : video;
+
+  useEffect(() => {
+    if (videoToPlay?.filePath) {
+      assetUrl(videoToPlay.filePath).then(setVideoUrl).catch(console.error);
+    }
+  }, [videoToPlay?.filePath]);
 
   async function handleDelete() {
     if (!srcId) return;
@@ -30,21 +48,33 @@ export function SourceDetailPage() {
     navigate(`/projects/${id}/video`);
   }
 
-  if (!source) {
-    return (
-      <div className={styles.page}>
-        <p className={styles.muted}>We couldn&apos;t find that source.</p>
-      </div>
-    );
-  }
-
   return (
     <div className={styles.page}>
       <PageHeader
-        title={source.title}
+        title={source?.title ?? 'Source Details'}
         actions={
           <>
-            {isVideoSource && video && (
+            {isVideoSource && video && !transcript && video.filePath && (
+              <Button variant="primary" disabled={isGenerating} onClick={async () => {
+                setIsGenerating(true);
+                try {
+                  toast.info('Generating transcript...');
+                  const job = await transcriptService.generate(video.id);
+                  if (job.status === 'error') {
+                    throw new Error(job.error || 'Failed to generate transcript');
+                  }
+                  if (id) await hydrateWorkspace(id);
+                  toast.success('Transcript generated');
+                } catch (e: any) {
+                  toast.error(e.message || 'Failed to generate transcript');
+                } finally {
+                  setIsGenerating(false);
+                }
+              }}>
+                {isGenerating ? 'Generating...' : 'Generate transcript'}
+              </Button>
+            )}
+            {isVideoSource && video && transcript && (
               <Button variant="primary" onClick={() => navigate(`/projects/${id}/video`)}>
                 Generate video
               </Button>
@@ -54,33 +84,94 @@ export function SourceDetailPage() {
           </>
         }
       />
-      <p className={styles.muted} style={{ display: 'flex', gap: 12, alignItems: 'center', marginBottom: 24 }}>
-        <div className={styles.typeBadge}>
-          <span>{source.type}</span>
-        </div>
-        {source.wordCount != null && <span>{formatWordCount(source.wordCount)}</span>}
-        <span>{formatDate(source.createdAt)}</span>
-      </p>
 
-      {transcript && (
-        <div className={styles.stack} style={{ marginBottom: 24 }}>
-          {transcript.segments.map((seg) => (
-            <article key={seg.id} className={styles.card}>
-              <div className={styles.mono} style={{ color: 'var(--color-text-tertiary)', marginBottom: 8 }}>
-                {formatDuration(seg.start)} → {formatDuration(seg.end)}
-                {seg.speaker ? ` · ${seg.speaker}` : ''}
-              </div>
-              <p>{seg.text}</p>
-            </article>
-          ))}
+      <div style={{ display: 'flex', gap: '24px', alignItems: 'flex-start' }}>
+        <div style={{ flex: 1, position: 'sticky', top: '100px' }}>
+          {videoUrl ? (
+            <video 
+              ref={videoRef}
+              controls 
+              style={{ width: '100%', borderRadius: 'var(--radius-lg)', background: '#000', maxHeight: '500px' }}
+              src={videoUrl}
+              onTimeUpdate={(e) => setCurrentTime(e.currentTarget.currentTime)}
+            />
+          ) : isVideoSource ? (
+            <div style={{ width: '100%', aspectRatio: '16/9', background: '#000', borderRadius: 'var(--radius-lg)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: '#888', gap: 8, padding: 24, textAlign: 'center' }}>
+              <span style={{ fontSize: 32 }}>🎬</span>
+              {video?.filePath ? (
+                <span>Loading video...</span>
+              ) : (
+                <>
+                  <span style={{ color: 'var(--color-text-secondary)' }}>No local video file</span>
+                  <span style={{ fontSize: 'var(--text-sm)', color: 'var(--color-text-tertiary)' }}>
+                    Video could not be downloaded. You can still generate a transcript if a file is available.
+                  </span>
+                </>
+              )}
+            </div>
+          ) : (
+            <div style={{ width: '100%', aspectRatio: '16/9', background: '#000', borderRadius: 'var(--radius-lg)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#666' }}>
+              No video for this source.
+            </div>
+          )}
+          <p className={styles.muted} style={{ display: 'flex', gap: 12, alignItems: 'center', marginTop: 16 }}>
+            <span style={{ padding: '4px 8px', background: 'var(--color-bg-elevated)', borderRadius: 4 }}>{source?.type}</span>
+            {source?.wordCount != null && <span>{formatWordCount(source.wordCount)}</span>}
+            {source?.createdAt && <span>{formatDate(source.createdAt)}</span>}
+          </p>
         </div>
-      )}
 
-      {!transcript && (
-        <div className={styles.card}>
-          <p className={styles.prose}>{source.content ?? 'No extracted text for this source.'}</p>
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '16px', maxHeight: 'calc(100vh - 120px)', overflowY: 'auto', paddingRight: '8px' }}>
+          {transcript ? (
+            transcript.segments.map((seg) => {
+              const isActive = currentTime >= seg.start && currentTime <= seg.end;
+              return (
+                <div 
+                  key={seg.id} 
+                  className={styles.card}
+                  style={{
+                    cursor: 'pointer',
+                    borderColor: isActive ? 'var(--color-accent)' : 'transparent',
+                    background: isActive ? 'var(--color-accent-subtle)' : 'var(--color-bg-elevated)',
+                    transition: 'all 0.2s'
+                  }}
+                  onClick={() => {
+                    if (videoRef.current) {
+                      videoRef.current.currentTime = seg.start;
+                      videoRef.current.play();
+                    }
+                  }}
+                >
+                  <div className={styles.mono} style={{ color: isActive ? 'var(--color-accent)' : 'var(--color-text-tertiary)', marginBottom: 8 }}>
+                    {formatDuration(seg.start)} → {formatDuration(seg.end)}
+                    {seg.speaker ? ` · ${seg.speaker}` : ''}
+                  </div>
+                  <p style={{ margin: 0 }}>{seg.text}</p>
+                </div>
+              );
+            })
+          ) : (
+            <div className={styles.card}>
+              {isVideoSource ? (
+                <div style={{ textAlign: 'center', padding: 'var(--space-8)' }}>
+                  <p className={styles.muted} style={{ marginBottom: 12 }}>No transcript yet.</p>
+                  {!video?.filePath ? (
+                    <p className={styles.muted} style={{ fontSize: 'var(--text-sm)' }}>
+                      Download the video file first, then generate a transcript.
+                    </p>
+                  ) : (
+                    <p className={styles.muted} style={{ fontSize: 'var(--text-sm)' }}>
+                      Click &quot;Generate transcript&quot; above to transcribe this video.
+                    </p>
+                  )}
+                </div>
+              ) : (
+                <p className={styles.prose}>{source?.content ?? 'No content available for this source.'}</p>
+              )}
+            </div>
+          )}
         </div>
-      )}
+      </div>
     </div>
   );
 }

@@ -133,21 +133,8 @@ pub async fn generate_transcript(
         (tid.as_str(), video_id.as_str(), video.project_id.as_str(), segs_json.as_str(), stamp.as_str()),
     )
     .await
-    .map_err(|e| e.to_string())?;
-    conn.execute(
-        "UPDATE videos SET has_transcript = 1 WHERE id = ?1",
+    .map_err(|e| e.to_string())?;    conn.execute("UPDATE videos SET has_transcript = 1 WHERE id = ?1",
         (video_id.as_str(),),
-    )
-    .await
-    .ok();
-    conn.execute(
-        "UPDATE sources SET content = ?1, word_count = ?2, excerpt = ?3 WHERE type = 'transcript' AND metadata LIKE ?4",
-        (
-            text.as_str(),
-            db::word_count(&text),
-            db::excerpt(&text).as_str(),
-            format!("%{}%", video.id).as_str(),
-        ),
     )
     .await
     .ok();

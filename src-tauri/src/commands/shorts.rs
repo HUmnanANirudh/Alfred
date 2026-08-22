@@ -130,12 +130,12 @@ pub async fn create_shorts(app: AppHandle, config: CreateShortConfig, state: Sta
 
     let target = config.number_of_clips.max(1);
     let mut clips: Vec<serde_json::Value> = Vec::new();
-    if config.find_clips_auto {
+    if config.find_clips_auto && !transcript_text.is_empty() {
         jobs::set_step(&mut job, 1, "running");
         jobs::emit(&app, &job);
         let prompt = format!(
             "TASK: SELECT_CLIPS\nFORMAT: JSON only\nInput:\n{{\"transcript\":{},\"target_count\":{target}}}\nOutput schema: {{\"clips\":[{{\"start\":0,\"end\":12,\"hook_score\":0.9,\"hook\":\"...\",\"reason\":\"...\"}}]}}",
-            if transcript_text.is_empty() { "[]".into() } else { transcript_text }
+            transcript_text
         );
         if let Ok(raw) = engines::llama_complete(&prompt, 512).await {
             if let Ok(parsed) = engines::extract_json(&raw) {
@@ -143,15 +143,6 @@ pub async fn create_shorts(app: AppHandle, config: CreateShortConfig, state: Sta
                     clips = arr.clone();
                 }
             }
-        }
-        if clips.is_empty() {
-            jobs::finish(
-                &mut job,
-                false,
-                Some("LFM2.5 did not return clip windows. Is llama.cpp running on :8765?".into()),
-            );
-            jobs::emit(&app, &job);
-            return Ok(job);
         }
         jobs::set_step(&mut job, 1, "done");
         jobs::set_step(&mut job, 2, "running");
@@ -161,6 +152,7 @@ pub async fn create_shorts(app: AppHandle, config: CreateShortConfig, state: Sta
         jobs::set_step(&mut job, 2, "running");
         jobs::emit(&app, &job);
     }
+    // Fallback: even splits when no clips found or no transcript available
     if clips.is_empty() {
         for i in 0..target {
             let start = (i as f64) * 18.0;
@@ -169,10 +161,12 @@ pub async fn create_shorts(app: AppHandle, config: CreateShortConfig, state: Sta
                 "end": start + 14.0,
                 "hook_score": 0.72,
                 "hook": "A concrete claim from this video.",
-                "reason": if config.find_clips_auto {
-                    "Even split while the text model is offline."
+                "reason": if transcript_text.is_empty() {
+                    "No transcript available — using even time splits.".to_string()
+                } else if config.find_clips_auto {
+                    "Even split while the text model is offline.".to_string()
                 } else {
-                    "Manual even windows — auto clip analysis was off."
+                    "Manual even windows — auto clip analysis was off.".to_string()
                 }
             }));
         }

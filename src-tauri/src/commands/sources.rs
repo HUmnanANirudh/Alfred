@@ -56,22 +56,22 @@ async fn persist_video_bundle(
             let dir = data_dir.join("projects").join(&source.project_id).join("videos");
             let _ = std::fs::create_dir_all(&dir);
             let out = dir.join(format!("{vid}.%(ext)s"));
-            if engines::ytdlp_download(url, &out.to_string_lossy()).await.is_ok() {
-                let mp4 = dir.join(format!("{vid}.mp4"));
-                if mp4.exists() {
-                    file_path = Some(mp4.to_string_lossy().into());
-                } else if let Ok(mut rd) = std::fs::read_dir(&dir) {
-                    if let Some(found) = rd.find_map(|e| {
-                        let p = e.ok()?.path();
-                        let name = p.file_name()?.to_string_lossy().into_owned();
-                        if name.starts_with(&vid) {
-                            Some(p.to_string_lossy().into_owned())
-                        } else {
-                            None
-                        }
-                    }) {
-                        file_path = Some(found);
+            // Non-fatal: if yt-dlp fails, still create the video record
+            let _ = engines::ytdlp_download(url, &out.to_string_lossy()).await;
+            let mp4 = dir.join(format!("{vid}.mp4"));
+            if mp4.exists() {
+                file_path = Some(mp4.to_string_lossy().into());
+            } else if let Ok(mut rd) = std::fs::read_dir(&dir) {
+                if let Some(found) = rd.find_map(|e| {
+                    let p = e.ok()?.path();
+                    let name = p.file_name()?.to_string_lossy().into_owned();
+                    if name.starts_with(&vid) {
+                        Some(p.to_string_lossy().into_owned())
+                    } else {
+                        None
                     }
+                }) {
+                    file_path = Some(found);
                 }
             }
         }
@@ -99,23 +99,7 @@ async fn persist_video_bundle(
     .await
     .map_err(|e| e.to_string())?;
 
-    let trs = Source {
-        id: db::new_id("src"),
-        project_id: source.project_id.clone(),
-        source_type: "transcript".into(),
-        title: source.title.clone(),
-        content: Some(String::new()),
-        url: None,
-        word_count: Some(0),
-        excerpt: None,
-        metadata: Some(json!({
-            "type": "transcript",
-            "videoSourceId": source.id,
-            "videoId": vid
-        })),
-        created_at: stamp.clone(),
-    };
-    insert_source(conn, &trs).await?;
+
 
     Ok(Video {
         id: vid,
@@ -240,12 +224,19 @@ pub async fn add_youtube(
         Err(_) => {}
     }
 
+    // Truncate very long YouTube titles
+    let display_title = if title.chars().count() > 60 {
+        format!("{}...", title.chars().take(57).collect::<String>())
+    } else {
+        title.clone()
+    };
+
     let stamp = now();
     let source = Source {
         id: db::new_id("src"),
         project_id,
         source_type: "youtube".into(),
-        title,
+        title: display_title,
         content: Some(String::new()),
         url: Some(url),
         word_count: Some(0),
@@ -261,7 +252,8 @@ pub async fn add_youtube(
     };
     let conn = state.connect()?;
     insert_source(&conn, &source).await?;
-    persist_video_bundle(&conn, &source, &state.data_dir).await?;
+    // Non-fatal: if video bundle fails (e.g. yt-dlp not installed), still return the source
+    let _ = persist_video_bundle(&conn, &source, &state.data_dir).await;
     Ok(AddYoutubeResult {
         success: true,
         source: Some(source),
