@@ -48,7 +48,10 @@ export const shortService = {
       const short: Short = {
         id: generateId('shrt'),
         projectId: config.projectId,
-        videoId: config.videoId,
+        videoId: config.videoId
+          || db.videos.find((v) => v.sourceId && config.sourceIds?.includes(v.sourceId))?.id
+          || db.videos.find((v) => v.projectId === config.projectId)?.id
+          || '',
         presetId: config.presetId,
         title: `Short ${i + 1}`,
         duration: 38 + i * 4,

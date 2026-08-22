@@ -44,6 +44,10 @@ export function WritingArticlePage() {
 
   async function generate() {
     if (!id) return;
+    if (sourceIds.length === 0) {
+      toast.error('Add a source, then generate.');
+      return;
+    }
     setBusy(true);
     try {
       const output = await writingService.generateArticle({
@@ -80,7 +84,7 @@ export function WritingArticlePage() {
     <div className={styles.page}>
       <PageHeader
         title="Write an Article"
-        description="Turn your project knowledge into a long-form draft."
+        actions={<Button variant="primary" onClick={() => setAdd(true)}>Add source</Button>}
       />
       <div className={styles.stack}>
         <Input label="Title" placeholder="The Future of AI" value={title} onChange={(e) => setTitle(e.target.value)} />
@@ -103,24 +107,20 @@ export function WritingArticlePage() {
           <option value="long">Long</option>
         </Select>
         {id && (
-          <div>
-            <p className={styles.muted} style={{ marginBottom: 8 }}>Project sources</p>
-            <SourceSelector
-              projectId={id}
-              selected={sourceIds}
-              onChange={setSourceIds}
-              emptyAction={{ label: 'Add source', onClick: () => setAdd(true) }}
-            />
-          </div>
+          <SourceSelector
+            projectId={id}
+            selected={sourceIds}
+            onChange={setSourceIds}
+            emptyAction={{ label: 'Add source', onClick: () => setAdd(true) }}
+          />
         )}
-        <Button variant="primary" loading={busy} onClick={generate}>Generate Article</Button>
+        <Button variant="primary" loading={busy} disabled={sourceIds.length === 0} onClick={generate}>Generate Article</Button>
       </div>
 
       {!current && !busy && (
         <EmptyState
           icon={<PenLine size={40} strokeWidth={1.25} />}
           title="No drafts yet"
-          description="Use your project sources to create something."
         />
       )}
 

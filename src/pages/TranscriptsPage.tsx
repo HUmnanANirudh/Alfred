@@ -15,12 +15,11 @@ export function TranscriptsPage() {
 
   return (
     <div className={styles.page}>
-      <PageHeader title="Transcripts" description="Timestamped speech from project videos." />
+      <PageHeader title="Transcripts" />
       {transcripts.length === 0 ? (
         <EmptyState
           icon={<FileText size={40} strokeWidth={1.25} />}
           title="No transcripts yet"
-          description="Add a YouTube or local video source to generate a transcript."
         />
       ) : (
         <div className={styles.stack}>

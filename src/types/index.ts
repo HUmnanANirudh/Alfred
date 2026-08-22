@@ -434,7 +434,8 @@ export type StorageUsage = {
 
 export type CreateShortConfig = {
   projectId: string;
-  videoId: string;
+  videoId?: string;
+  sourceIds?: string[];
   presetId: string;
   captionsEnabled: boolean;
   captionStyle?: string;

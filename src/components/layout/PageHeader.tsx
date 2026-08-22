@@ -2,17 +2,13 @@ import styles from './PageHeader.module.css';
 
 interface PageHeaderProps {
   title: string;
-  description?: string;
   actions?: React.ReactNode;
 }
 
-export function PageHeader({ title, description, actions }: PageHeaderProps) {
+export function PageHeader({ title, actions }: PageHeaderProps) {
   return (
     <header className={styles.header}>
-      <div>
-        <h1 className={styles.title}>{title}</h1>
-        {description && <p className={styles.desc}>{description}</p>}
-      </div>
+      <h1 className={styles.title}>{title}</h1>
       {actions && <div className={styles.actions}>{actions}</div>}
     </header>
   );

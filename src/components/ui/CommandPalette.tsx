@@ -36,7 +36,7 @@ export function CommandPalette() {
       const base = `/projects/${activeId}`;
       items.splice(1, 0,
         { id: 'add-source', label: 'Add Source', hint: '⇧⌘A', run: () => { setOpen(false); setAddSource(true); } },
-        { id: 'create-short', label: 'Create Short', run: go(`${base}/video/shorts`) },
+        { id: 'create-short', label: 'Generate Video', run: go(`${base}/video`) },
         { id: 'generate-audio', label: 'Generate Audio', run: go(`${base}/audio`) },
         { id: 'write-article', label: 'Write Article', run: go(`${base}/writing/article`) },
         { id: 'write-x', label: 'Write X Post', run: go(`${base}/writing/x`) },

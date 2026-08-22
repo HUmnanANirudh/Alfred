@@ -1,59 +1,146 @@
-import { useNavigate, useParams } from 'react-router-dom';
-import { Video as VideoIcon } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { useParams } from 'react-router-dom';
+import { Clapperboard } from 'lucide-react';
 import { PageHeader } from '../components/layout/PageHeader';
+import { ProcessingPanel } from '../components/video/ProcessingPanel';
+import { GenerateShortsModal } from '../components/video/GenerateShortsModal';
+import { ShortCard } from '../components/video/ShortCard';
 import { Button } from '../components/ui/Button';
 import { EmptyState } from '../components/ui/EmptyState';
+import { Select } from '../components/ui/Select';
+import { shortService } from '../services/shortService';
+import { toast } from '../store/toastStore';
 import { useUiStore } from '../store/uiStore';
 import { useWorkspaceStore } from '../store/workspaceStore';
-import { formatDate, formatDuration } from '../utils/format';
+import type { Job } from '../types';
 import styles from './page.module.css';
 
 export function VideoPage() {
   const { id } = useParams<{ id: string }>();
   const videos = useWorkspaceStore((s) => s.videos);
+  const shorts = useWorkspaceStore((s) => s.shorts);
+  const setShorts = useWorkspaceStore((s) => s.setShorts);
+  const setActiveJob = useWorkspaceStore((s) => s.setActiveJob);
   const setAdd = useUiStore((s) => s.setAddSourceOpen);
-  const navigate = useNavigate();
 
-  function addVideo() {
-    setAdd(true);
+  const [videoId, setVideoId] = useState('');
+  const [modalOpen, setModalOpen] = useState(false);
+  const [job, setJob] = useState<Job | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    if (!videos.length) {
+      setVideoId('');
+      return;
+    }
+    if (!videos.some((v) => v.id === videoId)) {
+      setVideoId(videos[0].id);
+    }
+  }, [videos, videoId]);
+
+  const chosen = videos.find((v) => v.id === videoId);
+
+  async function generate(config: {
+    presetId: string;
+    captionsEnabled: boolean;
+    captionStyle: string;
+    numberOfClips: number;
+  }) {
+    if (!id || !videoId) {
+      toast.error('Add a video source, then generate.');
+      return;
+    }
+    setModalOpen(false);
+    setBusy(true);
+    try {
+      await shortService.create(
+        {
+          projectId: id,
+          videoId,
+          sourceIds: chosen?.sourceId ? [chosen.sourceId] : undefined,
+          presetId: config.presetId,
+          captionsEnabled: config.captionsEnabled,
+          captionStyle: config.captionStyle,
+          findClipsAuto: true,
+          numberOfClips: config.numberOfClips,
+        },
+        (next) => {
+          setJob(next);
+          setActiveJob(next);
+        },
+      );
+      setShorts(await shortService.list(id));
+      setActiveJob(null);
+      setJob(null);
+      toast.success('Shorts ready');
+    } catch {
+      toast.error('Something went wrong. Try again.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function addVideoSource() {
+    setAdd(true, 'video');
   }
 
   return (
     <div className={styles.page}>
       <PageHeader
         title="Video"
-        description="Add a YouTube URL or a file from this device, then cut shorts from the transcript."
-        actions={<Button variant="primary" onClick={addVideo}>Add video</Button>}
+        actions={<Button variant="primary" onClick={addVideoSource}>Add source</Button>}
       />
+
       {videos.length === 0 ? (
         <EmptyState
-          icon={<VideoIcon size={40} strokeWidth={1.25} />}
-          title="No videos yet"
-          description="Bring in a YouTube video or choose a local file."
-          actionLabel="Add video"
-          onAction={addVideo}
+          icon={<Clapperboard size={40} strokeWidth={1.25} />}
+          title="No video sources yet"
+          actionLabel="Add source"
+          onAction={addVideoSource}
         />
       ) : (
         <div className={styles.stack}>
-          {videos.map((video) => (
-            <article key={video.id} className={styles.card}>
-              <h3>{video.title}</h3>
-              <p className={styles.muted}>
-                {video.duration != null ? formatDuration(video.duration) : 'Duration unknown'} · {formatDate(video.createdAt)}
-                {video.hasTranscript ? ' · Transcript ready' : ''}
-              </p>
-              <div className={styles.row} style={{ marginTop: 12 }}>
-                <Button size="sm" onClick={() => navigate(`/projects/${id}/video/shorts?video=${video.id}`)}>Create shorts</Button>
-                {video.sourceId && (
-                  <Button size="sm" variant="ghost" onClick={() => navigate(`/projects/${id}/sources/${video.sourceId}`)}>
-                    Open source / transcript
-                  </Button>
-                )}
-              </div>
-            </article>
-          ))}
+          <Select
+            label="Video"
+            value={videoId}
+            onChange={(e) => setVideoId(e.target.value)}
+          >
+            {videos.map((video) => (
+              <option key={video.id} value={video.id}>
+                {video.title}{video.hasTranscript ? ' · transcript' : ''}
+              </option>
+            ))}
+          </Select>
+          <Button variant="primary" disabled={!videoId} onClick={() => setModalOpen(true)}>
+            Generate shorts
+          </Button>
         </div>
       )}
+
+      {job && busy && (
+        <div style={{ marginTop: 24 }}>
+          <ProcessingPanel job={job} title="Creating shorts" />
+        </div>
+      )}
+
+      {shorts.length > 0 ? (
+        <div className={styles.stack} style={{ marginTop: 32 }}>
+          {shorts.map((short) => <ShortCard key={short.id} short={short} />)}
+        </div>
+      ) : videos.length > 0 && !busy ? (
+        <EmptyState
+          icon={<Clapperboard size={40} strokeWidth={1.25} />}
+          title="Nothing generated yet"
+        />
+      ) : null}
+
+      <GenerateShortsModal
+        isOpen={modalOpen}
+        onClose={() => { if (!busy) setModalOpen(false); }}
+        video={chosen}
+        busy={busy}
+        onGenerate={generate}
+      />
     </div>
   );
 }

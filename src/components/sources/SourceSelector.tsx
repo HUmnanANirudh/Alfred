@@ -38,7 +38,6 @@ export function SourceSelector({ selected, onChange, filterTypes, emptyAction }:
   if (items.length === 0 && !query) {
     return (
       <div className={styles.emptyBox}>
-        <p className={styles.empty}>Add a source to this project.</p>
         {emptyAction && (
           <Button variant="secondary" size="sm" onClick={emptyAction.onClick}>
             {emptyAction.label}
@@ -51,7 +50,6 @@ export function SourceSelector({ selected, onChange, filterTypes, emptyAction }:
   return (
     <div className={styles.wrap}>
       <div className={styles.head}>
-        <span className={styles.count}>Using {selected.length} source{selected.length === 1 ? '' : 's'}</span>
         <div className={styles.actions}>
           <Button variant="ghost" size="sm" onClick={() => onChange(visibleIds)}>Select all</Button>
           <Button variant="ghost" size="sm" onClick={() => onChange([])}>Clear</Button>

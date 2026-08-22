@@ -29,6 +29,10 @@ export function WritingLinkedInPage() {
 
   async function generate() {
     if (!id) return;
+    if (sourceIds.length === 0) {
+      toast.error('Add a source, then generate.');
+      return;
+    }
     setBusy(true);
     try {
       const output = await writingService.generateLinkedIn({
@@ -48,7 +52,10 @@ export function WritingLinkedInPage() {
 
   return (
     <div className={styles.page}>
-      <PageHeader title="LinkedIn" description="A polished post from the same project sources." />
+      <PageHeader
+        title="LinkedIn"
+        actions={<Button variant="primary" onClick={() => setAdd(true)}>Add source</Button>}
+      />
       <div className={styles.stack}>
         <Input
           label="Topic"
@@ -62,23 +69,19 @@ export function WritingLinkedInPage() {
           <option value="conversational">Conversational</option>
         </Select>
         {id && (
-          <div>
-            <p className={styles.muted} style={{ marginBottom: 8 }}>Project sources</p>
-            <SourceSelector
-              projectId={id}
-              selected={sourceIds}
-              onChange={setSourceIds}
-              emptyAction={{ label: 'Add source', onClick: () => setAdd(true) }}
-            />
-          </div>
+          <SourceSelector
+            projectId={id}
+            selected={sourceIds}
+            onChange={setSourceIds}
+            emptyAction={{ label: 'Add source', onClick: () => setAdd(true) }}
+          />
         )}
-        <Button variant="primary" loading={busy} onClick={generate}>Generate post</Button>
+        <Button variant="primary" loading={busy} disabled={sourceIds.length === 0} onClick={generate}>Generate post</Button>
       </div>
       {!current && !busy && (
         <EmptyState
           icon={<Briefcase size={40} strokeWidth={1.25} />}
           title="No drafts yet"
-          description="Use your project sources to create something."
         />
       )}
       {current && (

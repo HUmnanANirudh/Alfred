@@ -45,9 +45,6 @@ export function AddVoiceModal({ isOpen, onClose }: { isOpen: boolean; onClose: (
       }
     >
       <Input label="Name" placeholder="My voice" value={name} onChange={(e) => setName(e.target.value)} />
-      <p style={{ marginTop: 12, fontSize: 13, color: 'var(--color-text-secondary)' }}>
-        Your voice stays on this device.
-      </p>
       {job && busy && (
         <div style={{ marginTop: 16 }}>
           <ProcessingPanel job={job} title="Cloning voice" />

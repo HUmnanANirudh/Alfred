@@ -40,12 +40,11 @@ export function SourceDetailPage() {
     <div className={styles.page}>
       <PageHeader
         title={source.title}
-        description={source.url ?? source.type}
         actions={
           <>
             {isVideoSource && video && (
-              <Button variant="primary" onClick={() => navigate(`/projects/${id}/video/shorts?video=${video.id}`)}>
-                Create shorts
+              <Button variant="primary" onClick={() => navigate(`/projects/${id}/video`)}>
+                Generate video
               </Button>
             )}
             <Button variant="secondary" onClick={() => navigate(`/projects/${id}/writing/article`)}>Write article</Button>
@@ -58,12 +57,10 @@ export function SourceDetailPage() {
         <span>{source.type}</span>
         {source.wordCount != null && <span>{formatWordCount(source.wordCount)}</span>}
         <span>{formatDate(source.createdAt)}</span>
-        {isVideoSource && <span>Transcript on this source</span>}
       </p>
 
       {transcript && (
         <div className={styles.stack} style={{ marginBottom: 24 }}>
-          <h2 style={{ fontSize: 17, fontWeight: 500 }}>Transcript</h2>
           {transcript.segments.map((seg) => (
             <article key={seg.id} className={styles.card}>
               <div className={styles.mono} style={{ color: 'var(--color-text-tertiary)', marginBottom: 8 }}>

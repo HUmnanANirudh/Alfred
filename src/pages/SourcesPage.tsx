@@ -32,7 +32,6 @@ export function SourcesPage() {
     <div className={styles.page}>
       <PageHeader
         title="Sources"
-        description="Add research once. Use it in video, audio, and writing."
         actions={<Button variant="primary" onClick={() => setAdd(true)}>Add source</Button>}
       />
       <div className={styles.toolbar}>
@@ -49,7 +48,6 @@ export function SourcesPage() {
         <EmptyState
           icon={<Library size={40} strokeWidth={1.25} />}
           title="Your project has no sources yet"
-          description="Add articles, videos, or paste content."
           actionLabel="Add source"
           onAction={() => setAdd(true)}
         />

@@ -19,7 +19,6 @@ export function VoiceCard({
         {voice.isDefault && <Badge variant="accent">Default</Badge>}
         {voice.isCloned && <Badge>On device clone</Badge>}
       </div>
-      <p className={styles.engine}>{voice.engine.replace(/_/g, ' ')}</p>
     </button>
   );
 }

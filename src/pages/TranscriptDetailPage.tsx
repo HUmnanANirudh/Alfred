@@ -23,7 +23,6 @@ export function TranscriptDetailPage() {
     <div className={styles.page}>
       <PageHeader
         title={video?.title ?? 'Transcript'}
-        description={`${transcript.language ?? 'en'} · ${transcript.engine ?? 'local asr'}`}
       />
       <ol className={styles.stack}>
         {transcript.segments.map((seg) => (

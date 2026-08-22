@@ -57,7 +57,6 @@ export function VoiceSelector({
           />
         ))}
       </div>
-      <p className={styles.note}>Preview is a placeholder in Phase 1. Speech stays on this device.</p>
     </Modal>
   );
 }

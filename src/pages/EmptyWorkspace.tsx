@@ -58,14 +58,11 @@ export function EmptyWorkspace() {
           <FolderOpen size={40} strokeWidth={1.25} />
         </div>
         <h1 className={styles.headline}>Alfred, welcomes you</h1>
-        <p className={styles.sub}>Your workspace is clear.</p>
         <Button variant="primary" size="lg" onClick={handleOpen}>
           Commission a Project
         </Button>
-        <p className={styles.hint}>Give Alfred something to work with.</p>
         {projects.length > 0 && (
           <div className={page.stack} style={{ width: '100%', marginTop: 24, textAlign: 'left' }}>
-            <p className={page.muted}>Open a project</p>
             {projects.map((project) => (
               <button
                 key={project.id}

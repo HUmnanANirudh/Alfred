@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import type { Source, SourceType } from '../../types';
 import { sourceService } from '../../services/sourceService';
 import { videoService } from '../../services/videoService';
@@ -14,9 +13,14 @@ import { Tabs } from '../ui/Tabs';
 import { Textarea } from '../ui/Textarea';
 import styles from './AddSourceModal.module.css';
 
-const TABS = [
+const ALL_TABS = [
   { id: 'article', label: 'Article URL' },
   { id: 'text', label: 'Paste' },
+  { id: 'youtube', label: 'YouTube' },
+  { id: 'video', label: 'From device' },
+];
+
+const VIDEO_TABS = [
   { id: 'youtube', label: 'YouTube' },
   { id: 'video', label: 'From device' },
 ];
@@ -32,9 +36,9 @@ async function refreshMedia(projectId: string) {
 
 export function AddSourceModal({ projectId }: { projectId: string }) {
   const open = useUiStore((s) => s.addSourceOpen);
+  const intake = useUiStore((s) => s.sourceIntake);
   const setOpen = useUiStore((s) => s.setAddSourceOpen);
   const addSource = useWorkspaceStore((s) => s.addSource);
-  const navigate = useNavigate();
   const [tab, setTab] = useState<SourceType>('article');
   const [url, setUrl] = useState('');
   const [title, setTitle] = useState('');
@@ -43,15 +47,17 @@ export function AddSourceModal({ projectId }: { projectId: string }) {
   const [busy, setBusy] = useState(false);
   const [failReason, setFailReason] = useState('');
 
+  const tabs = intake === 'video' ? VIDEO_TABS : ALL_TABS;
+
   useEffect(() => {
     if (!open) return;
-    setTab('article');
+    setTab(intake === 'video' ? 'youtube' : 'article');
     setUrl('');
     setTitle('');
     setContent('');
     setFileName('');
     setFailReason('');
-  }, [open]);
+  }, [open, intake]);
 
   function reset() {
     setUrl('');
@@ -106,13 +112,9 @@ export function AddSourceModal({ projectId }: { projectId: string }) {
   async function finishVideo(source: Source) {
     addSource(source);
     await refreshMedia(projectId);
-    const video = useWorkspaceStore.getState().videos.find((v) => v.sourceId === source.id);
-    toast.success('Video added. Transcript is on the source — you can generate shorts now.');
+    toast.success('Source added. You can generate from it now.');
     setOpen(false);
     reset();
-    if (video && window.location.pathname.includes('/video')) {
-      navigate(`/projects/${projectId}/video/shorts?video=${video.id}`);
-    }
   }
 
   async function handleYoutube() {
@@ -204,7 +206,7 @@ export function AddSourceModal({ projectId }: { projectId: string }) {
       }
     >
       <div className={styles.body}>
-        <Tabs tabs={TABS} value={tab} onChange={(id) => { setTab(id as SourceType); setFailReason(''); }} />
+        <Tabs tabs={tabs} value={tab} onChange={(id) => { setTab(id as SourceType); setFailReason(''); }} />
         {tab === 'article' && (
           <Input
             label="Article URL"

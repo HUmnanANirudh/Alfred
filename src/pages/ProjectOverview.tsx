@@ -38,18 +38,12 @@ export function ProjectOverview() {
 
   return (
     <div className={styles.page}>
-      <p className={styles.muted} style={{ marginBottom: 24 }}>
-        {project.description ?? 'Give Alfred something to work with.'}
-      </p>
       <div className={styles.grid}>
-        <Button variant="secondary" leftIcon={<Clapperboard size={14} />} onClick={() => navigate(`/projects/${id}/video/shorts`)}>Create short</Button>
+        <Button variant="secondary" leftIcon={<Clapperboard size={14} />} onClick={() => navigate(`/projects/${id}/video`)}>Generate video</Button>
         <Button variant="secondary" leftIcon={<Mic size={14} />} onClick={() => navigate(`/projects/${id}/audio`)}>Generate audio</Button>
         <Button variant="secondary" leftIcon={<PenLine size={14} />} onClick={() => navigate(`/projects/${id}/writing/article`)}>Write article</Button>
       </div>
-      <h2 style={{ marginTop: 32, marginBottom: 12, fontSize: 17, fontWeight: 500 }}>Recent activity</h2>
-      {recent.length === 0 ? (
-        <p className={styles.muted}>Nothing yet. Add a source on the right so Alfred has context.</p>
-      ) : (
+      {recent.length === 0 ? null : (
         <ul className={styles.stack}>
           {recent.map((item) => (
             <li key={item.id} className={styles.card}>

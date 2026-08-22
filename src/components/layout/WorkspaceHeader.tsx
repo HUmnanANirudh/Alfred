@@ -39,12 +39,6 @@ export function WorkspaceHeader() {
         <NavLink to={`${base}/audio`} className={cn(styles.tab, onAudio && styles.tabOn)}>Audio</NavLink>
         <NavLink to={`${base}/writing/article`} className={cn(styles.tab, onWriting && styles.tabOn)}>Writing</NavLink>
       </nav>
-      {onVideo && (
-        <nav className={styles.sub} aria-label="Video">
-          <NavLink to={`${base}/video`} end className={({ isActive }) => cn(styles.subLink, isActive && styles.subOn)}>Videos</NavLink>
-          <NavLink to={`${base}/video/shorts`} className={({ isActive }) => cn(styles.subLink, isActive && styles.subOn)}>Shorts</NavLink>
-        </nav>
-      )}
       {onWriting && (
         <nav className={styles.sub} aria-label="Writing">
           <NavLink to={`${base}/writing/article`} className={({ isActive }) => cn(styles.subLink, isActive && styles.subOn)}>Article</NavLink>

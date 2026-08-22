@@ -27,7 +27,6 @@ export function PresetCard({
         {DIAGRAM[preset.layout]}
       </div>
       <strong className={styles.name}>{preset.name}</strong>
-      <span className={styles.desc}>{preset.description}</span>
     </button>
   );
 }

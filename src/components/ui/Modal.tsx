@@ -3,7 +3,7 @@ import { X } from 'lucide-react';
 import { cn } from '../../utils/cn';
 import styles from './Modal.module.css';
 
-type ModalSize = 'sm' | 'md' | 'lg';
+type ModalSize = 'sm' | 'md' | 'lg' | 'xl';
 
 interface ModalProps {
   isOpen: boolean;

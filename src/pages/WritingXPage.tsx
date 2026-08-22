@@ -36,6 +36,10 @@ export function WritingXPage() {
 
   async function generate() {
     if (!id) return;
+    if (sourceIds.length === 0) {
+      toast.error('Add a source, then generate.');
+      return;
+    }
     setBusy(true);
     try {
       const output = tab === 'post'
@@ -69,7 +73,10 @@ export function WritingXPage() {
 
   return (
     <div className={styles.page}>
-      <PageHeader title="X" description="A short post or a thread from the same sources." />
+      <PageHeader
+        title="X"
+        actions={<Button variant="primary" onClick={() => setAdd(true)}>Add source</Button>}
+      />
       <Tabs
         tabs={[{ id: 'post', label: 'Short post' }, { id: 'thread', label: 'Thread' }]}
         value={tab}
@@ -84,17 +91,14 @@ export function WritingXPage() {
           <option value="conversational">Conversational</option>
         </Select>
         {id && (
-          <div>
-            <p className={styles.muted} style={{ marginBottom: 8 }}>Project sources</p>
-            <SourceSelector
-              projectId={id}
-              selected={sourceIds}
-              onChange={setSourceIds}
-              emptyAction={{ label: 'Add source', onClick: () => setAdd(true) }}
-            />
-          </div>
+          <SourceSelector
+            projectId={id}
+            selected={sourceIds}
+            onChange={setSourceIds}
+            emptyAction={{ label: 'Add source', onClick: () => setAdd(true) }}
+          />
         )}
-        <Button variant="primary" loading={busy} onClick={generate}>
+        <Button variant="primary" loading={busy} disabled={sourceIds.length === 0} onClick={generate}>
           {tab === 'post' ? 'Write a short X post' : 'Create a thread'}
         </Button>
       </div>
@@ -103,7 +107,6 @@ export function WritingXPage() {
         <EmptyState
           icon={<Hash size={40} strokeWidth={1.25} />}
           title="No drafts yet"
-          description="Use your project sources to create something."
         />
       )}
 

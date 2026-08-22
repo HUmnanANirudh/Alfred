@@ -29,7 +29,10 @@ export function AppMenu() {
       <aside className={styles.drawer} onMouseDown={(e) => e.stopPropagation()} aria-label="Menu">
         <div className={styles.wordmark}>ALFRED</div>
         <div className={styles.switcher}>
-          <ProjectSwitcher onCreateProject={() => { setOpen(false); setCreate(true); }} />
+          <ProjectSwitcher
+            onNavigate={() => setOpen(false)}
+            onCreateProject={() => { setOpen(false); setCreate(true); }}
+          />
         </div>
         <nav className={styles.nav}>
           <NavLink
