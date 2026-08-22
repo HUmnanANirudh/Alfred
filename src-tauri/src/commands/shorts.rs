@@ -34,8 +34,49 @@ pub async fn get_short(id: String, state: State<'_, AppState>) -> Result<Option<
 }
 
 #[tauri::command]
-pub async fn get_presets() -> Result<Vec<VideoPreset>, String> {
-    Ok(db::presets())
+pub async fn get_presets(state: State<'_, AppState>) -> Result<Vec<VideoPreset>, String> {
+    let mut list = db::presets();
+    let conn = state.connect()?;
+    let custom = db::collect(
+        &conn,
+        "SELECT id, name, description, aspect_ratio, layout FROM video_presets ORDER BY name ASC",
+        (),
+        |row| {
+            Ok(VideoPreset {
+                id: db::as_text(&row.get_value(0).map_err(|e| e.to_string())?).unwrap_or_default(),
+                name: db::as_text(&row.get_value(1).map_err(|e| e.to_string())?).unwrap_or_default(),
+                description: db::as_text(&row.get_value(2).map_err(|e| e.to_string())?).unwrap_or_default(),
+                aspect_ratio: db::as_text(&row.get_value(3).map_err(|e| e.to_string())?).unwrap_or_default(),
+                layout: db::as_text(&row.get_value(4).map_err(|e| e.to_string())?).unwrap_or_default(),
+            })
+        },
+    )
+    .await
+    .unwrap_or_default();
+    list.extend(custom);
+    Ok(list)
+}
+
+#[tauri::command]
+pub async fn save_preset(preset: VideoPreset, state: State<'_, AppState>) -> Result<VideoPreset, String> {
+    let mut preset = preset;
+    if preset.id.is_empty() {
+        preset.id = db::new_id("preset");
+    }
+    let conn = state.connect()?;
+    conn.execute(
+        "INSERT INTO video_presets (id, name, description, aspect_ratio, layout) VALUES (?1, ?2, ?3, ?4, ?5)",
+        (
+            preset.id.as_str(),
+            preset.name.as_str(),
+            preset.description.as_str(),
+            preset.aspect_ratio.as_str(),
+            preset.layout.as_str(),
+        ),
+    )
+    .await
+    .map_err(|e| e.to_string())?;
+    Ok(preset)
 }
 
 #[tauri::command]
@@ -103,6 +144,15 @@ pub async fn create_shorts(app: AppHandle, config: CreateShortConfig, state: Sta
                 }
             }
         }
+        if clips.is_empty() {
+            jobs::finish(
+                &mut job,
+                false,
+                Some("LFM2.5 did not return clip windows. Is llama.cpp running on :8765?".into()),
+            );
+            jobs::emit(&app, &job);
+            return Ok(job);
+        }
         jobs::set_step(&mut job, 1, "done");
         jobs::set_step(&mut job, 2, "running");
         jobs::emit(&app, &job);
@@ -163,7 +213,16 @@ pub async fn create_shorts(app: AppHandle, config: CreateShortConfig, state: Sta
         let file = out_dir.join(format!("{sid}.mp4"));
         let mut file_path = None;
         if let Some(input) = video.as_ref().and_then(|v| v.file_path.as_ref()) {
-            if engines::ffmpeg_cut_clip(input, start, dur, &file.to_string_lossy()).await.is_ok() {
+            if engines::ffmpeg_cut_clip_layered(
+                input,
+                config.broll_path.as_deref(),
+                start,
+                dur,
+                &file.to_string_lossy(),
+            )
+            .await
+            .is_ok()
+            {
                 file_path = Some(file.to_string_lossy().into_owned());
             }
         }
@@ -213,6 +272,7 @@ pub async fn regenerate_short(app: AppHandle, id: String, state: State<'_, AppSt
             caption_style: short.caption_style,
             find_clips_auto: true,
             number_of_clips: 1,
+            broll_path: None,
         },
         state,
     )
@@ -230,4 +290,14 @@ pub async fn delete_short(id: String, state: State<'_, AppState>) -> Result<(), 
         .await
         .map_err(|e| e.to_string())?;
     Ok(())
+}
+
+#[tauri::command]
+pub async fn export_short(id: String, state: State<'_, AppState>) -> Result<String, String> {
+    let short = get_short(id.clone(), state.clone())
+        .await?
+        .ok_or("We could not find that short.")?;
+    let src = short.file_path.ok_or("Render the short first, then export.")?;
+    let dest = state.data_dir.join("exports").join(format!("{id}.mp4"));
+    engines::copy_export(&src, &dest)
 }

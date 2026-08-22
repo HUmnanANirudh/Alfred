@@ -382,3 +382,77 @@ pub async fn delete_source(id: String, state: State<'_, AppState>) -> Result<(),
     }
     Ok(())
 }
+
+async fn source_from_text(
+    project_id: String,
+    source_type: &str,
+    title: String,
+    content: String,
+    url: Option<String>,
+    state: State<'_, AppState>,
+) -> Result<Source, String> {
+    add_source(
+        Source {
+            id: String::new(),
+            project_id,
+            source_type: source_type.into(),
+            title,
+            content: Some(content.clone()),
+            url,
+            word_count: Some(db::word_count(&content)),
+            excerpt: Some(db::excerpt(&content)),
+            metadata: Some(json!({ "type": source_type })),
+            created_at: String::new(),
+        },
+        state,
+    )
+    .await
+}
+
+#[tauri::command]
+pub async fn add_rss(project_id: String, url: String, state: State<'_, AppState>) -> Result<Vec<Source>, String> {
+    let xml = engines::fetch_url_raw(&url).await?;
+    let items = engines::parse_feed(&xml, &url);
+    if items.is_empty() {
+        return Err("That feed has no readable items.".into());
+    }
+    let mut out = Vec::new();
+    for (title, content, link) in items {
+        let source = source_from_text(
+            project_id.clone(),
+            "rss",
+            title,
+            content,
+            Some(link),
+            state.clone(),
+        )
+        .await?;
+        out.push(source);
+    }
+    Ok(out)
+}
+
+#[tauri::command]
+pub async fn add_pdf(project_id: String, file_path: String, state: State<'_, AppState>) -> Result<Source, String> {
+    let content = engines::extract_pdf(&file_path)?;
+    if content.split_whitespace().count() < 20 {
+        return Err("That PDF has almost no extractable text.".into());
+    }
+    let title = std::path::Path::new(&file_path)
+        .file_stem()
+        .and_then(|s| s.to_str())
+        .unwrap_or("PDF")
+        .to_string();
+    source_from_text(project_id, "pdf", title, content, Some(file_path), state).await
+}
+
+#[tauri::command]
+pub async fn add_epub(project_id: String, file_path: String, state: State<'_, AppState>) -> Result<Source, String> {
+    let content = engines::extract_epub(&file_path)?;
+    let title = std::path::Path::new(&file_path)
+        .file_stem()
+        .and_then(|s| s.to_str())
+        .unwrap_or("EPUB")
+        .to_string();
+    source_from_text(project_id, "epub", title, content, Some(file_path), state).await
+}

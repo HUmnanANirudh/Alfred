@@ -1,6 +1,7 @@
 import type { Job } from '../types';
 
 export type LlmTokenEvent = { token: string };
+export type JobProgressHandler = (job: Job) => void;
 
 export function isTauri(): boolean {
   return typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
@@ -13,9 +14,9 @@ export async function invokeCmd<T>(cmd: string, args?: Record<string, unknown>):
 
 export async function withJobProgress<T>(
   run: () => Promise<T>,
-  onProgress?: (job: Job) => void,
+  onProgress?: JobProgressHandler,
 ): Promise<T> {
-  if (!isTauri() || !onProgress) return run();
+  if (!onProgress) return run();
   const { listen } = await import('@tauri-apps/api/event');
   const unlisten = await listen<Job>('job:progress', (event) => {
     onProgress(event.payload);
@@ -31,7 +32,7 @@ export async function withLlmTokens<T>(
   run: () => Promise<T>,
   handlers?: { onStart?: () => void; onToken?: (token: string) => void },
 ): Promise<T> {
-  if (!isTauri() || !handlers) return run();
+  if (!handlers) return run();
   const { listen } = await import('@tauri-apps/api/event');
   const unstart = await listen('llm:start', () => handlers.onStart?.());
   const untok = await listen<LlmTokenEvent>('llm:token', (event) => {
@@ -43,4 +44,9 @@ export async function withLlmTokens<T>(
     unstart();
     untok();
   }
+}
+
+export async function assetUrl(path: string): Promise<string> {
+  const { convertFileSrc } = await import('@tauri-apps/api/core');
+  return convertFileSrc(path);
 }

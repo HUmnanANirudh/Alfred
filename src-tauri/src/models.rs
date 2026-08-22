@@ -160,6 +160,7 @@ pub struct AiModel {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct VideoPreset {
+    #[serde(default)]
     pub id: String,
     pub name: String,
     pub description: String,
@@ -238,6 +239,7 @@ pub struct CreateShortConfig {
     pub caption_style: Option<String>,
     pub find_clips_auto: bool,
     pub number_of_clips: i64,
+    pub broll_path: Option<String>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -248,6 +250,28 @@ pub struct GenerateAudioConfig {
     pub script: String,
     pub title: Option<String>,
     pub source_ids: Option<Vec<String>>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GeneratePodcastConfig {
+    pub project_id: String,
+    pub voice_ids: Vec<String>,
+    pub script: Option<String>,
+    pub title: Option<String>,
+    pub source_ids: Option<Vec<String>>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TranscriptSegment {
+    pub id: String,
+    pub start: f64,
+    pub end: f64,
+    pub text: String,
+    pub speaker: Option<String>,
+    pub words: Option<serde_json::Value>,
+    pub confidence: Option<f64>,
 }
 
 #[derive(Debug, Clone, Deserialize)]

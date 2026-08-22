@@ -4,206 +4,38 @@ import type {
   SocialPost,
   WritingOutput,
 } from '../types';
-import { generateId } from '../utils/id';
-import { delay, now } from '../utils/mock';
-import { invokeCmd, isTauri, withLlmTokens } from './ipc';
-import { db, MOCK_ARTICLE } from './memory';
+import { invokeCmd, withLlmTokens } from './ipc';
 
 export type WritingStreamHandlers = {
   onStart?: () => void;
   onToken?: (token: string) => void;
 };
 
-async function streamMock(text: string, handlers?: WritingStreamHandlers): Promise<string> {
-  handlers?.onStart?.();
-  if (!handlers?.onToken) {
-    await delay(400);
-    return text;
-  }
-  const pieces = text.split(/(?<=\s)/);
-  for (const piece of pieces) {
-    handlers.onToken(piece);
-    await delay(18);
-  }
-  return text;
-}
-
-function save(output: WritingOutput, posts?: SocialPost[]): WritingOutput {
-  db.writing.push(output);
-  if (posts) db.socialPosts.push(...posts);
-  return { ...output };
-}
-
-const X_POSTS = [
-  'Keep the research in one project. Reuse it for shorts, threads, and the long piece — without another paste.',
-  'Local inference is a product decision, not a slogan. Transcripts and voice samples stay on the desk.',
-  'A 350M model is enough when the job is JSON: hooks, clip windows, five posts. Narrow beats chatty.',
-  'The clip that travels is a concrete claim. Cut the throat-clearing.',
-  'Captions are how most people watch. Design the short for silence.',
-];
-
-const THREAD = [
-  '1/ If you are still pasting the same notes into five AI tools, the workflow is the product problem.',
-  '2/ One project. One source library. Articles, YouTube, local files, pasted research — in once.',
-  '3/ Video, audio, and writing all read from that library. No re-briefing the model.',
-  '4/ Inference stays on device. That is how unpublished interviews and client briefs can live here.',
-  '5/ Small models, structured jobs. Ask for JSON. Validate it. Retry if it is malformed.',
-  '6/ Shorts come from timestamps, not vibes. Transcript + visual score + hook line.',
-  '7/ That is Alfred: butler work for creators who want the material to stay theirs.',
-];
-
-const LINKEDIN = `Most creator stacks leak context.
-
-You research once, then re-paste it into a chatbot, a caption tool, and a doc. Each hop drops citations and privacy.
-
-A better shape is a local project: sources in the middle, formats on the edges. Generate the article, the thread, and the short from the same notes.
-
-The constraint is architectural. If transcripts and voice clones never leave the machine, you can work from material you would not upload.
-
-That is the workspace I want: calm, desktop-native, and quiet about the cloud.`;
-
 export const writingService = {
-  async list(projectId: string): Promise<WritingOutput[]> {
-    if (isTauri()) return invokeCmd<WritingOutput[]>('list_writing', { projectId });
-    await delay(400);
-    return db.writing.filter((w) => w.projectId === projectId).map((w) => ({ ...w }));
-  },
-
-  async get(id: string): Promise<WritingOutput | null> {
-    if (isTauri()) return invokeCmd<WritingOutput | null>('get_writing', { id });
-    await delay(250);
-    const item = db.writing.find((w) => w.id === id);
-    return item ? { ...item } : null;
-  },
-
-  async listPosts(outputId: string): Promise<SocialPost[]> {
-    if (isTauri()) return invokeCmd<SocialPost[]>('list_posts', { outputId });
-    await delay(150);
-    return db.socialPosts.filter((p) => p.outputId === outputId).map((p) => ({ ...p }));
-  },
-
-  async generateArticle(config: GenerateArticleConfig, stream?: WritingStreamHandlers): Promise<WritingOutput> {
-    if (isTauri()) {
-      return withLlmTokens(() => invokeCmd<WritingOutput>('generate_article', { config }), stream);
-    }
-    const title = config.title?.trim() || config.topic.trim() || 'Draft from project sources';
-    const content = await streamMock(`# ${title}\n\n${MOCK_ARTICLE}`, stream);
-    return save({
-      id: generateId('wrt'),
-      projectId: config.projectId,
-      type: 'article',
-      title,
-      content,
-      sourceIds: config.sourceIds,
-      tone: config.tone,
-      model: 'lfm2.5-350m-q4_k_m',
-      status: 'done',
-      createdAt: now(),
-    });
-  },
-
-  async generateXPost(config: GenerateSocialConfig, stream?: WritingStreamHandlers): Promise<WritingOutput> {
-    if (isTauri()) {
-      return withLlmTokens(() => invokeCmd<WritingOutput>('generate_x_post', { config }), stream);
-    }
-    const content = await streamMock(X_POSTS[0] ?? '', stream);
-    const output = save({
-      id: generateId('wrt'),
-      projectId: config.projectId,
-      type: 'x_post',
-      content,
-      sourceIds: config.sourceIds,
-      tone: config.tone,
-      model: 'lfm2.5-350m-q4_k_m',
-      status: 'done',
-      createdAt: now(),
-    });
-    db.socialPosts.push({
-      id: generateId('pst'),
-      outputId: output.id,
-      index: 1,
-      content,
-    });
-    return output;
-  },
-
-  async generateThread(config: GenerateSocialConfig, stream?: WritingStreamHandlers): Promise<WritingOutput> {
-    if (isTauri()) {
-      return withLlmTokens(() => invokeCmd<WritingOutput>('generate_thread', { config }), stream);
-    }
-    const posts = THREAD.slice(0, config.postCount ?? THREAD.length);
-    const content = await streamMock(posts.join('\n\n'), stream);
-    const output = save({
-      id: generateId('wrt'),
-      projectId: config.projectId,
-      type: 'thread',
-      content,
-      sourceIds: config.sourceIds,
-      tone: config.tone,
-      model: 'lfm2.5-350m-q4_k_m',
-      status: 'done',
-      createdAt: now(),
-    });
-    content.split('\n\n').forEach((post, i) => {
-      db.socialPosts.push({
-        id: generateId('pst'),
-        outputId: output.id,
-        index: i + 1,
-        content: post,
-      });
-    });
-    return output;
-  },
-
-  async generateLinkedIn(config: GenerateSocialConfig, stream?: WritingStreamHandlers): Promise<WritingOutput> {
-    if (isTauri()) {
-      return withLlmTokens(() => invokeCmd<WritingOutput>('generate_linkedin', { config }), stream);
-    }
-    const content = await streamMock(LINKEDIN, stream);
-    return save({
-      id: generateId('wrt'),
-      projectId: config.projectId,
-      type: 'linkedin',
-      title: 'A local workspace for research-backed content',
-      content,
-      sourceIds: config.sourceIds,
-      tone: config.tone,
-      model: 'lfm2.5-350m-q4_k_m',
-      status: 'done',
-      createdAt: now(),
-    });
-  },
-
-  async update(id: string, content: string): Promise<WritingOutput> {
-    if (isTauri()) return invokeCmd<WritingOutput>('update_writing', { id, content });
-    await delay(400);
-    const item = db.writing.find((w) => w.id === id);
-    if (!item) throw new Error('We could not find that draft.');
-    item.content = content;
-    return { ...item };
-  },
-
-  async updatePost(id: string, content: string): Promise<SocialPost> {
-    if (isTauri()) return invokeCmd<SocialPost>('update_post', { id, content });
-    await delay(250);
-    const post = db.socialPosts.find((p) => p.id === id);
-    if (!post) throw new Error('We could not find that post.');
-    post.content = content;
-    const parent = db.writing.find((w) => w.id === post.outputId);
-    if (parent) {
-      parent.content = db.socialPosts
-        .filter((p) => p.outputId === parent.id)
-        .sort((a, b) => a.index - b.index)
-        .map((p) => p.content)
-        .join('\n\n');
-    }
-    return { ...post };
-  },
-
-  async delete(id: string): Promise<void> {
-    if (isTauri()) return invokeCmd('delete_writing', { id });
-    await delay(350);
-    db.writing = db.writing.filter((w) => w.id !== id);
-    db.socialPosts = db.socialPosts.filter((p) => p.outputId !== id);
-  },
+  list: (projectId: string) => invokeCmd<WritingOutput[]>('list_writing', { projectId }),
+  get: (id: string) => invokeCmd<WritingOutput | null>('get_writing', { id }),
+  listPosts: (outputId: string) => invokeCmd<SocialPost[]>('list_posts', { outputId }),
+  generateArticle: (config: GenerateArticleConfig, stream?: WritingStreamHandlers) =>
+    withLlmTokens(() => invokeCmd<WritingOutput>('generate_article', { config }), stream),
+  generateXPost: (config: GenerateSocialConfig, stream?: WritingStreamHandlers) =>
+    withLlmTokens(() => invokeCmd<WritingOutput>('generate_x_post', { config }), stream),
+  generateThread: (config: GenerateSocialConfig, stream?: WritingStreamHandlers) =>
+    withLlmTokens(() => invokeCmd<WritingOutput>('generate_thread', { config }), stream),
+  generateLinkedIn: (config: GenerateSocialConfig, stream?: WritingStreamHandlers) =>
+    withLlmTokens(() => invokeCmd<WritingOutput>('generate_linkedin', { config }), stream),
+  rewrite: (
+    id: string,
+    action: 'rewrite' | 'expand' | 'shorten',
+    selection?: string,
+    tone?: string,
+    stream?: WritingStreamHandlers,
+  ) =>
+    withLlmTokens(
+      () => invokeCmd<WritingOutput>('rewrite_writing', { id, action, selection, tone }),
+      stream,
+    ),
+  update: (id: string, content: string) => invokeCmd<WritingOutput>('update_writing', { id, content }),
+  updatePost: (id: string, content: string) => invokeCmd<SocialPost>('update_post', { id, content }),
+  delete: (id: string) => invokeCmd<void>('delete_writing', { id }),
+  exportFile: (id: string, format: 'md' | 'txt') => invokeCmd<string>('export_writing', { id, format }),
 };

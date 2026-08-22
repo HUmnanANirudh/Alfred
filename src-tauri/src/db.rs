@@ -40,7 +40,6 @@ async fn seed_voices(conn: &Connection) -> Result<(), String> {
         ("vce_james", "James", "chatterbox", 0, 0),
         ("vce_maya", "Maya", "qwen3_tts", 0, 0),
         ("vce_rio", "Rio", "supertonic", 0, 0),
-        ("vce_studio", "Studio", "chatterbox", 0, 1),
     ];
     for (vid, name, engine, is_default, is_cloned) in voices {
         conn.execute(
@@ -73,6 +72,10 @@ async fn seed_models(conn: &Connection) -> Result<(), String> {
         ("pocket_tts", "pocket_tts", "audio_cpp", "tts", "PocketTTS", 90, "not_installed", 1),
         ("chatterbox_q8", "chatterbox", "audio_cpp", "clone", "Chatterbox Q8", 410, "not_installed", 1),
         ("silero_vad", "silero_vad", "audio_cpp", "vad", "Silero VAD", 2, "installed", 1),
+        ("qwen3_asr_1_7b", "qwen3_asr", "audio_cpp", "asr", "Qwen3 ASR 1.7B", 1400, "not_installed", 0),
+        ("sortformer_diar", "sortformer_diar", "audio_cpp", "diar", "Sortformer 4-speaker", 90, "not_installed", 1),
+        ("htdemucs", "htdemucs", "audio_cpp", "sep", "HTDemucs", 320, "not_installed", 1),
+        ("supertonic", "supertonic", "audio_cpp", "tts", "Supertonic 3", 180, "not_installed", 0),
     ];
     for (mid, family, engine, role, name, size, status, is_default) in models {
         conn.execute(

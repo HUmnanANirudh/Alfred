@@ -14,18 +14,7 @@ import { useWorkspaceStore } from '../store/workspaceStore';
 import type { WritingOutput, WritingTone } from '../types';
 import styles from './page.module.css';
 
-function applyEdit(content: string, action: 'rewrite' | 'expand' | 'shorten'): string {
-  if (action === 'shorten') {
-    const paras = content.split(/\n\n+/);
-    return paras.slice(0, Math.max(1, Math.ceil(paras.length * 0.6))).join('\n\n');
-  }
-  if (action === 'expand') {
-    return `${content}\n\nA useful next beat: keep the same sources, and make the claim more specific before you publish.`;
-  }
-  return content
-    .replace(/Alfred is built around that idea/g, 'Alfred is organized around that idea')
-    .replace(/This mock article exists so Phase 1 can feel complete/g, 'This draft exists so the writing room can be judged as a workspace');
-}
+
 
 export function WritingArticlePage() {
   const { id } = useParams<{ id: string }>();
@@ -79,10 +68,32 @@ export function WritingArticlePage() {
   }
 
   async function transform(action: 'rewrite' | 'expand' | 'shorten') {
+    if (!current || !id) return;
+    setBusy(true);
+    setStream('');
+    try {
+      const output = await writingService.rewrite(current.id, action, undefined, tone, {
+        onStart: () => setStream(''),
+        onToken: (token) => setStream((prev) => prev + token),
+      });
+      updateWriting(output);
+      toast.info(action === 'rewrite' ? 'Passage rewritten' : action === 'expand' ? 'Draft expanded' : 'Draft shortened');
+    } catch {
+      toast.error('Something went wrong. Try again.');
+    } finally {
+      setBusy(false);
+      setStream('');
+    }
+  }
+
+  async function handleExport(format: 'md' | 'txt') {
     if (!current) return;
-    const next = { ...current, content: applyEdit(current.content, action) };
-    await persist(next);
-    toast.info(action === 'rewrite' ? 'Passage rewritten' : action === 'expand' ? 'Draft expanded' : 'Draft shortened');
+    try {
+      const savedPath = await writingService.exportFile(current.id, format);
+      if (savedPath) toast.success('Exported successfully');
+    } catch {
+      toast.error('Failed to export.');
+    }
   }
 
   return (
@@ -136,6 +147,9 @@ export function WritingArticlePage() {
             <Button size="sm" variant="ghost" onClick={() => transform('rewrite')}>Rewrite</Button>
             <Button size="sm" variant="ghost" onClick={() => transform('expand')}>Expand</Button>
             <Button size="sm" variant="ghost" onClick={() => transform('shorten')}>Shorten</Button>
+            <div style={{ flex: 1 }} />
+            <Button size="sm" variant="secondary" onClick={() => handleExport('md')}>Export .md</Button>
+            <Button size="sm" variant="secondary" onClick={() => handleExport('txt')}>Export .txt</Button>
           </div>
           <ArticleEditor
             title={current.title}

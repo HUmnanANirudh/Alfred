@@ -85,7 +85,14 @@ pub async fn generate_audio(
             let _ = std::fs::create_dir_all(&dir);
             let id = db::new_id("aud");
             let out = dir.join(format!("{id}.wav"));
-            let file_path = match engines::audio_tts(&config.script, &out.to_string_lossy()).await {
+            let file_path = match engines::audio_tts_with(
+                &config.script,
+                &out.to_string_lossy(),
+                Some(config.voice_id.as_str()),
+                voice.as_ref().and_then(|v| v.sample_path.as_deref()),
+            )
+            .await
+            {
                 Ok(()) => Some(out.to_string_lossy().into_owned()),
                 Err(e) => {
                     jobs::finish(&mut job, false, Some(e));
@@ -212,4 +219,216 @@ pub async fn delete_audio(id: String, state: State<'_, AppState>) -> Result<(), 
         .await
         .map_err(|e| e.to_string())?;
     Ok(())
+}
+
+#[tauri::command]
+pub async fn regenerate_audio(
+    app: AppHandle,
+    id: String,
+    state: State<'_, AppState>,
+) -> Result<Job, String> {
+    let item = get_audio(id.clone(), state.clone())
+        .await?
+        .ok_or("We could not find that audio.")?;
+    generate_audio(
+        app,
+        GenerateAudioConfig {
+            project_id: item.project_id,
+            voice_id: item.voice_id,
+            script: item.script,
+            title: item.title,
+            source_ids: item.source_ids,
+        },
+        state,
+    )
+    .await
+}
+
+#[tauri::command]
+pub async fn export_audio(id: String, format: String, state: State<'_, AppState>) -> Result<String, String> {
+    let item = get_audio(id.clone(), state.clone())
+        .await?
+        .ok_or("We could not find that audio.")?;
+    let src = item.file_path.ok_or("Generate audio first, then export.")?;
+    let dest = state.data_dir.join("exports").join(format!("{id}.{format}"));
+    if format == "mp3" {
+        engines::ffmpeg_to_mp3(&src, &dest.to_string_lossy()).await?;
+        Ok(dest.to_string_lossy().into_owned())
+    } else {
+        engines::copy_export(&src, &dest)
+    }
+}
+
+#[tauri::command]
+pub async fn separate_audio(
+    app: AppHandle,
+    id: String,
+    state: State<'_, AppState>,
+) -> Result<Job, String> {
+    let item = get_audio(id.clone(), state.clone())
+        .await?
+        .ok_or("We could not find that audio.")?;
+    let src = item
+        .file_path
+        .clone()
+        .ok_or("Generate audio first, then separate vocals.")?;
+    let mut job = jobs::start(
+        "separate_audio",
+        Some(item.project_id.clone()),
+        vec![("Separating vocals", Some("htdemucs"))],
+    );
+    jobs::emit(&app, &job);
+    jobs::set_step(&mut job, 0, "running");
+    jobs::emit(&app, &job);
+    let dest = state
+        .data_dir
+        .join("projects")
+        .join(&item.project_id)
+        .join("audio")
+        .join(format!("{id}_vocals.wav"));
+    match engines::audio_task_bytes("sep", &src, &dest.to_string_lossy()).await {
+        Ok(()) => {
+            jobs::set_step(&mut job, 0, "done");
+            jobs::finish(&mut job, true, None);
+        }
+        Err(e) => jobs::finish(&mut job, false, Some(e)),
+    }
+    jobs::emit(&app, &job);
+    Ok(job)
+}
+
+#[tauri::command]
+pub async fn generate_podcast(
+    app: AppHandle,
+    config: crate::models::GeneratePodcastConfig,
+    state: State<'_, AppState>,
+) -> Result<Job, String> {
+    if config.voice_ids.len() < 2 {
+        return Err("Pick at least two voices for a podcast.".into());
+    }
+    let conn = state.connect()?;
+    let mut job = jobs::start(
+        "generate_podcast",
+        Some(config.project_id.clone()),
+        vec![
+            ("Writing dialogue", Some("lfm2.5")),
+            ("Speaking parts", Some("audio_cpp")),
+            ("Joining episode", Some("ffmpeg")),
+        ],
+    );
+    jobs::emit(&app, &job);
+    jobs::set_step(&mut job, 0, "running");
+    jobs::emit(&app, &job);
+
+    let context = db::source_context(
+        &conn,
+        &config.project_id,
+        config.source_ids.as_deref().unwrap_or(&[]),
+    )
+    .await?;
+    let script = if let Some(s) = config.script.filter(|s| !s.trim().is_empty()) {
+        s
+    } else {
+        let prompt = format!(
+            "Write a two-host podcast script from these sources only. Each line starts with A: or B:. Plain text, no markdown.\n\n{context}"
+        );
+        engines::llama_complete(&prompt, 700).await?
+    };
+    jobs::set_step(&mut job, 0, "done");
+    jobs::set_step(&mut job, 1, "running");
+    jobs::emit(&app, &job);
+
+    let dir = state
+        .data_dir
+        .join("projects")
+        .join(&config.project_id)
+        .join("audio");
+    let _ = std::fs::create_dir_all(&dir);
+    let mut takes = Vec::new();
+    let mut idx = 0usize;
+    for line in script.lines() {
+        let trimmed = line.trim();
+        let (who, text) = if let Some(rest) = trimmed.strip_prefix("A:") {
+            (0usize, rest.trim())
+        } else if let Some(rest) = trimmed.strip_prefix("B:") {
+            (1usize, rest.trim())
+        } else if trimmed.is_empty() {
+            continue;
+        } else {
+            (idx % 2, trimmed)
+        };
+        if text.is_empty() {
+            continue;
+        }
+        let voice_id = config
+            .voice_ids
+            .get(who)
+            .or_else(|| config.voice_ids.first())
+            .cloned()
+            .unwrap_or_default();
+        let mut voices = db::collect(
+            &conn,
+            "SELECT id, name, sample_path, engine, is_default, is_cloned, created_at FROM voices WHERE id = ?1",
+            (voice_id.as_str(),),
+            db::row_voice,
+        )
+        .await?;
+        let voice = voices.pop();
+        let take = dir.join(format!("pod_{}_{idx}.wav", db::new_id("tk")));
+        engines::audio_tts_with(
+            text,
+            &take.to_string_lossy(),
+            Some(voice_id.as_str()),
+            voice.as_ref().and_then(|v| v.sample_path.as_deref()),
+        )
+        .await?;
+        takes.push(take.to_string_lossy().into_owned());
+        idx += 1;
+    }
+    if takes.is_empty() {
+        jobs::finish(&mut job, false, Some("The script had no spoken lines.".into()));
+        jobs::emit(&app, &job);
+        return Ok(job);
+    }
+    jobs::set_step(&mut job, 1, "done");
+    jobs::set_step(&mut job, 2, "running");
+    jobs::emit(&app, &job);
+    let id = db::new_id("aud");
+    let out = dir.join(format!("{id}.wav"));
+    engines::ffmpeg_concat_wav(&takes, &out.to_string_lossy()).await?;
+    for p in &takes {
+        engines::unlink(Some(p));
+    }
+    let stamp = now();
+    let title = config
+        .title
+        .clone()
+        .filter(|t| !t.trim().is_empty())
+        .unwrap_or_else(|| "Podcast episode".into());
+    let ids = serde_json::to_string(&config.source_ids).unwrap_or_else(|_| "[]".into());
+    let duration = engines::ffprobe_duration(&out.to_string_lossy()).await;
+    let file_path = out.to_string_lossy().into_owned();
+    conn.execute(
+        "INSERT INTO audio_generations (id, project_id, voice_id, voice_name, title, script, duration, file_path, engine, status, source_ids, created_at, updated_at)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, 'multi', 'done', ?9, ?10, ?11)",
+        (
+            id.as_str(),
+            config.project_id.as_str(),
+            config.voice_ids[0].as_str(),
+            "Podcast",
+            title.as_str(),
+            script.as_str(),
+            duration,
+            file_path.as_str(),
+            ids.as_str(),
+            stamp.as_str(),
+            stamp.as_str(),
+        ),
+    )
+    .await
+    .map_err(|e| e.to_string())?;
+    jobs::set_step(&mut job, 2, "done");
+    jobs::finish(&mut job, true, None);
+    jobs::emit(&app, &job);
+    Ok(job)
 }

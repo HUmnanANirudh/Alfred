@@ -43,7 +43,7 @@ export type ProjectStats = {
 // Source
 // ------------------------------------------------------------
 
-export type SourceType = "article" | "youtube" | "video" | "text" | "transcript";
+export type SourceType = "article" | "youtube" | "video" | "text" | "transcript" | "pdf" | "epub" | "rss";
 
 export type Source = {
   id: string;                    // "src_" + nanoid
@@ -315,7 +315,10 @@ export type JobType =
   | "generate_audio"             // audio.cpp TTS
   | "clone_voice"                // audio.cpp voice cloning
   | "generate_article"           // LFM2.5 text generation
-  | "generate_social";           // LFM2.5 text generation
+  | "generate_social"
+  | "diarize_transcript"
+  | "separate_audio"
+  | "generate_podcast";
 
 export type JobStep = {
   id: string;
@@ -457,12 +460,21 @@ export type CreateShortConfig = {
   captionStyle?: string;
   findClipsAuto: boolean;
   numberOfClips: number;
+  brollPath?: string;
 };
 
 export type GenerateAudioConfig = {
   projectId: string;
   voiceId: string;
   script: string;
+  title?: string;
+  sourceIds?: string[];
+};
+
+export type GeneratePodcastConfig = {
+  projectId: string;
+  voiceIds: string[];
+  script?: string;
   title?: string;
   sourceIds?: string[];
 };

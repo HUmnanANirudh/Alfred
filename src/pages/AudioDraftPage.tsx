@@ -69,6 +69,34 @@ export function AudioDraftPage() {
     }
   }
 
+  async function handleExport(format: 'wav' | 'mp3') {
+    if (!audId) return;
+    try {
+      const savedPath = await audioService.exportFile(audId, format);
+      if (savedPath) toast.success('Exported successfully');
+    } catch {
+      toast.error('Failed to export.');
+    }
+  }
+
+  async function separate() {
+    if (!audId) return;
+    setBusy(true);
+    try {
+      await audioService.separate(audId, (next) => {
+        setJob(next);
+        setActiveJob(next);
+      });
+      toast.success('Audio separated into vocals and background');
+    } catch {
+      toast.error('Separation failed.');
+    } finally {
+      setBusy(false);
+      setJob(null);
+      setActiveJob(null);
+    }
+  }
+
   if (!draft) {
     return (
       <div className={styles.page}>
@@ -84,6 +112,12 @@ export function AudioDraftPage() {
         actions={
           <>
             <Button variant="ghost" onClick={() => navigate(`/projects/${id}/audio`)}>Back</Button>
+            {draft.filePath && (
+              <>
+                <Button variant="secondary" disabled={busy} onClick={separate}>Separate tracks</Button>
+                <Button variant="secondary" onClick={() => handleExport('wav')}>Export .wav</Button>
+              </>
+            )}
             <Button variant="secondary" loading={saving} onClick={save}>Save</Button>
             <Button variant="primary" disabled={busy || !script.trim()} onClick={() => setVoiceOpen(true)}>
               Generate

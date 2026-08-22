@@ -211,22 +211,112 @@ fn looks_like_json(s: &str) -> bool {
 }
 
 pub async fn audio_tts(script: &str, out_path: &str) -> Result<(), String> {
+    audio_tts_with(script, out_path, None, None).await
+}
+
+pub async fn audio_tts_with(
+    script: &str,
+    out_path: &str,
+    voice: Option<&str>,
+    reference: Option<&str>,
+) -> Result<(), String> {
     let client = reqwest::Client::new();
-    let res = client
-        .post(format!("{AUDIO}/v1/audio/speech"))
-        .timeout(Duration::from_secs(180))
-        .json(&json!({
-            "input": script,
-            "model": "tts"
-        }))
-        .send()
-        .await
-        .map_err(|e| format!("audio.cpp is not reachable on :8766 ({e})"))?;
+    let res = if let Some(ref_path) = reference.filter(|p| !p.is_empty() && Path::new(p).exists()) {
+        let bytes = tokio::fs::read(ref_path).await.map_err(|e| e.to_string())?;
+        let part = reqwest::multipart::Part::bytes(bytes)
+            .file_name("voice.wav")
+            .mime_str("audio/wav")
+            .map_err(|e| e.to_string())?;
+        let mut form = reqwest::multipart::Form::new()
+            .part("file", part)
+            .text("input", script.to_string())
+            .text("model", "tts".to_string());
+        if let Some(v) = voice {
+            form = form.text("voice", v.to_string());
+        }
+        client
+            .post(format!("{AUDIO}/v1/audio/speech"))
+            .timeout(Duration::from_secs(180))
+            .multipart(form)
+            .send()
+            .await
+    } else {
+        let mut body = json!({ "input": script, "model": "tts" });
+        if let Some(v) = voice {
+            body["voice"] = json!(v);
+        }
+        client
+            .post(format!("{AUDIO}/v1/audio/speech"))
+            .timeout(Duration::from_secs(180))
+            .json(&body)
+            .send()
+            .await
+    }
+    .map_err(|e| format!("audio.cpp is not reachable on :8766 ({e})"))?;
     if !res.status().is_success() {
         return Err(format!("TTS failed: {}", res.status()));
     }
     let bytes = res.bytes().await.map_err(|e| e.to_string())?;
     tokio::fs::write(out_path, bytes)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+pub async fn audio_task(task: &str, file_path: &str) -> Result<Value, String> {
+    let bytes = tokio::fs::read(file_path).await.map_err(|e| e.to_string())?;
+    let part = reqwest::multipart::Part::bytes(bytes)
+        .file_name("audio.wav")
+        .mime_str("audio/wav")
+        .map_err(|e| e.to_string())?;
+    let form = reqwest::multipart::Form::new()
+        .part("file", part)
+        .text("task", task.to_string());
+    let client = reqwest::Client::new();
+    let res = client
+        .post(format!("{AUDIO}/v1/tasks/run"))
+        .timeout(Duration::from_secs(300))
+        .multipart(form)
+        .send()
+        .await
+        .map_err(|e| format!("audio.cpp is not reachable on :8766 ({e})"))?;
+    if !res.status().is_success() {
+        return Err(format!(
+            "audio.cpp could not run {task} ({})",
+            res.status()
+        ));
+    }
+    let bytes = res.bytes().await.map_err(|e| e.to_string())?;
+    if let Ok(v) = serde_json::from_slice::<Value>(&bytes) {
+        return Ok(v);
+    }
+    Ok(json!({ "binary": true, "bytes": bytes.len() }))
+}
+
+pub async fn audio_task_bytes(task: &str, file_path: &str, out_path: &str) -> Result<(), String> {
+    let bytes = tokio::fs::read(file_path).await.map_err(|e| e.to_string())?;
+    let part = reqwest::multipart::Part::bytes(bytes)
+        .file_name("audio.wav")
+        .mime_str("audio/wav")
+        .map_err(|e| e.to_string())?;
+    let form = reqwest::multipart::Form::new()
+        .part("file", part)
+        .text("task", task.to_string());
+    let client = reqwest::Client::new();
+    let res = client
+        .post(format!("{AUDIO}/v1/tasks/run"))
+        .timeout(Duration::from_secs(300))
+        .multipart(form)
+        .send()
+        .await
+        .map_err(|e| format!("audio.cpp is not reachable on :8766 ({e})"))?;
+    if !res.status().is_success() {
+        return Err(format!(
+            "audio.cpp could not run {task} ({})",
+            res.status()
+        ));
+    }
+    let out = res.bytes().await.map_err(|e| e.to_string())?;
+    tokio::fs::write(out_path, out)
         .await
         .map_err(|e| e.to_string())
 }
@@ -275,7 +365,8 @@ fn parse_asr_segments(body: &Value) -> Vec<Value> {
                 "start": seg.get("start").and_then(|v| v.as_f64()).unwrap_or(0.0),
                 "end": seg.get("end").and_then(|v| v.as_f64()).unwrap_or(0.0),
                 "text": seg.get("text").and_then(|v| v.as_str()).unwrap_or("").trim(),
-                "speaker": "Speaker 1",
+                "speaker": seg.get("speaker").and_then(|v| v.as_str()),
+                "words": seg.get("words").cloned(),
                 "confidence": seg.get("avg_logprob").and_then(|v| v.as_f64()).map(|n| (n + 1.0).clamp(0.0, 1.0)).unwrap_or(0.9),
                 "index": i
             })
@@ -335,15 +426,38 @@ pub async fn ffmpeg_extract_wav(input: &str, output: &str) -> Result<(), String>
 }
 
 pub async fn ffmpeg_cut_clip(input: &str, start: f64, duration: f64, output: &str) -> Result<(), String> {
-    let status = Command::new("ffmpeg")
-        .args([
-            "-y",
-            "-ss",
-            &format!("{start:.2}"),
-            "-t",
-            &format!("{duration:.2}"),
-            "-i",
-            input,
+    ffmpeg_cut_clip_layered(input, None, start, duration, output).await
+}
+
+pub async fn ffmpeg_cut_clip_layered(
+    input: &str,
+    broll: Option<&str>,
+    start: f64,
+    duration: f64,
+    output: &str,
+) -> Result<(), String> {
+    let start_s = format!("{start:.2}");
+    let dur_s = format!("{duration:.2}");
+    let mut cmd = Command::new("ffmpeg");
+    cmd.arg("-y").arg("-ss").arg(&start_s).arg("-t").arg(&dur_s).arg("-i").arg(input);
+    if let Some(bg) = broll.filter(|p| !p.is_empty() && Path::new(p).exists()) {
+        cmd.args(["-stream_loop", "-1", "-i", bg, "-t", &dur_s]);
+        cmd.args([
+            "-filter_complex",
+            "[1:v]scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920[bg];[0:v]scale=1080:-2[fg];[bg][fg]overlay=(W-w)/2:(H-h)/2",
+            "-c:v",
+            "libx264",
+            "-c:a",
+            "aac",
+            "-map",
+            "0:a?",
+            "-shortest",
+            "-movflags",
+            "+faststart",
+            output,
+        ]);
+    } else {
+        cmd.args([
             "-vf",
             "scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920",
             "-c:v",
@@ -353,7 +467,9 @@ pub async fn ffmpeg_cut_clip(input: &str, start: f64, duration: f64, output: &st
             "-movflags",
             "+faststart",
             output,
-        ])
+        ]);
+    }
+    let status = cmd
         .status()
         .await
         .map_err(|_| "FFmpeg is not installed on this machine.".to_string())?;
@@ -362,6 +478,154 @@ pub async fn ffmpeg_cut_clip(input: &str, start: f64, duration: f64, output: &st
     } else {
         Err("FFmpeg could not render that clip.".into())
     }
+}
+
+pub async fn ffmpeg_to_mp3(input: &str, output: &str) -> Result<(), String> {
+    let status = Command::new("ffmpeg")
+        .args(["-y", "-i", input, "-codec:a", "libmp3lame", "-q:a", "2", output])
+        .status()
+        .await
+        .map_err(|_| "FFmpeg is not installed on this machine.".to_string())?;
+    if status.success() {
+        Ok(())
+    } else {
+        Err("FFmpeg could not encode MP3.".into())
+    }
+}
+
+pub async fn ffmpeg_concat_wav(paths: &[String], output: &str) -> Result<(), String> {
+    let list = format!("{output}.txt");
+    let body = paths
+        .iter()
+        .map(|p| format!("file '{}'", p.replace('\'', "'\\''")))
+        .collect::<Vec<_>>()
+        .join("\n");
+    tokio::fs::write(&list, body).await.map_err(|e| e.to_string())?;
+    let status = Command::new("ffmpeg")
+        .args(["-y", "-f", "concat", "-safe", "0", "-i", &list, "-c", "copy", output])
+        .status()
+        .await
+        .map_err(|_| "FFmpeg is not installed on this machine.".to_string())?;
+    let _ = tokio::fs::remove_file(&list).await;
+    if status.success() {
+        Ok(())
+    } else {
+        Err("FFmpeg could not join those takes.".into())
+    }
+}
+
+pub fn copy_export(src: &str, dest: &Path) -> Result<String, String> {
+    if let Some(parent) = dest.parent() {
+        std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
+    }
+    std::fs::copy(src, dest).map_err(|e| e.to_string())?;
+    Ok(dest.to_string_lossy().into_owned())
+}
+
+pub fn extract_pdf(path: &str) -> Result<String, String> {
+    let bytes = std::fs::read(path).map_err(|e| e.to_string())?;
+    pdf_extract::extract_text_from_mem(&bytes).map_err(|e| e.to_string())
+}
+
+pub fn extract_epub(path: &str) -> Result<String, String> {
+    let file = std::fs::File::open(path).map_err(|e| e.to_string())?;
+    let mut archive = zip::ZipArchive::new(file).map_err(|e| e.to_string())?;
+    let mut chunks = Vec::new();
+    for i in 0..archive.len() {
+        let mut entry = archive.by_index(i).map_err(|e| e.to_string())?;
+        let name = entry.name().to_lowercase();
+        if !(name.ends_with(".html") || name.ends_with(".xhtml") || name.ends_with(".htm")) {
+            continue;
+        }
+        let mut html = String::new();
+        use std::io::Read;
+        entry.read_to_string(&mut html).map_err(|e| e.to_string())?;
+        let doc = scraper::Html::parse_document(&html);
+        if let Ok(sel) = scraper::Selector::parse("body") {
+            if let Some(body) = doc.select(&sel).next() {
+                let text = body.text().collect::<Vec<_>>().join(" ");
+                let norm = text.split_whitespace().collect::<Vec<_>>().join(" ");
+                if !norm.is_empty() {
+                    chunks.push(norm);
+                }
+            }
+        }
+    }
+    if chunks.is_empty() {
+        return Err("That EPUB has no readable text.".into());
+    }
+    Ok(chunks.join("\n\n"))
+}
+
+pub fn parse_feed(xml: &str, feed_url: &str) -> Vec<(String, String, String)> {
+    let mut items = Vec::new();
+    let blocks: Vec<&str> = if xml.contains("<item") {
+        xml.split("<item").skip(1).collect()
+    } else {
+        xml.split("<entry").skip(1).collect()
+    };
+    for block in blocks.iter().take(20) {
+        let title = tag_text(block, "title").unwrap_or_else(|| "Feed item".into());
+        let link = tag_text(block, "link")
+            .or_else(|| attr_href(block))
+            .unwrap_or_else(|| feed_url.to_string());
+        let body = tag_text(block, "content:encoded")
+            .or_else(|| tag_text(block, "description"))
+            .or_else(|| tag_text(block, "summary"))
+            .or_else(|| tag_text(block, "content"))
+            .unwrap_or_default();
+        let text = strip_tags(&body);
+        if text.split_whitespace().count() > 8 {
+            items.push((title, text, link));
+        }
+    }
+    items
+}
+
+fn tag_text(hay: &str, tag: &str) -> Option<String> {
+    let open = format!("<{tag}");
+    let close = format!("</{tag}>");
+    let start = hay.find(&open)?;
+    let after = hay[start..].find('>')? + start + 1;
+    let end = hay[after..].find(&close)? + after;
+    Some(hay[after..end].trim().to_string())
+}
+
+fn attr_href(hay: &str) -> Option<String> {
+    let idx = hay.find("href=\"")?;
+    let rest = &hay[idx + 6..];
+    let end = rest.find('"')?;
+    Some(rest[..end].to_string())
+}
+
+fn strip_tags(s: &str) -> String {
+    let mut out = String::new();
+    let mut in_tag = false;
+    for c in s.chars() {
+        match c {
+            '<' => in_tag = true,
+            '>' => in_tag = false,
+            _ if !in_tag => out.push(c),
+            _ => {}
+        }
+    }
+    out.split_whitespace().collect::<Vec<_>>().join(" ")
+}
+
+pub async fn fetch_url_raw(url: &str) -> Result<String, String> {
+    let client = reqwest::Client::builder()
+        .user_agent("Alfred/0.1 (local research)")
+        .timeout(Duration::from_secs(20))
+        .build()
+        .map_err(|e| e.to_string())?;
+    client
+        .get(url)
+        .send()
+        .await
+        .map_err(|_| "network_error".to_string())?
+        .text()
+        .await
+        .map_err(|_| "network_error".to_string())
 }
 
 pub async fn ffprobe_duration(path: &str) -> Option<f64> {

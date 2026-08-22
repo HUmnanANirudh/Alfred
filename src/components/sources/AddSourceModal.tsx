@@ -17,6 +17,9 @@ import styles from './AddSourceModal.module.css';
 const ALL_TABS = [
   { id: 'article', label: 'Article URL' },
   { id: 'text', label: 'Paste' },
+  { id: 'pdf', label: 'PDF' },
+  { id: 'epub', label: 'EPUB' },
+  { id: 'rss', label: 'RSS' },
   { id: 'youtube', label: 'YouTube' },
   { id: 'video', label: 'From device' },
 ];
@@ -24,6 +27,9 @@ const ALL_TABS = [
 const TEXT_TABS = [
   { id: 'article', label: 'Article URL' },
   { id: 'text', label: 'Paste' },
+  { id: 'pdf', label: 'PDF' },
+  { id: 'epub', label: 'EPUB' },
+  { id: 'rss', label: 'RSS' },
 ];
 
 const VIDEO_TABS = [
@@ -192,10 +198,56 @@ export function AddSourceModal({ projectId }: { projectId: string }) {
     }
   }
 
+  async function handleFile(type: 'pdf' | 'epub') {
+    if (!filePath.trim() && !fileName.trim()) {
+      setFailReason(`Choose a ${type.toUpperCase()} file from this device.`);
+      return;
+    }
+    setBusy(true);
+    setFailReason('');
+    try {
+      const path = filePath.trim() || fileName.trim();
+      const source = type === 'pdf' 
+        ? await sourceService.addPdf(projectId, path)
+        : await sourceService.addEpub(projectId, path);
+      addSource(source);
+      toast.success('Source added');
+      setOpen(false);
+      reset();
+    } catch {
+      setFailReason('Something went wrong. Try again.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleRss() {
+    if (!url.trim()) {
+      setFailReason('Enter an RSS feed URL.');
+      return;
+    }
+    setBusy(true);
+    setFailReason('');
+    try {
+      const sources = await sourceService.addRss(projectId, url.trim());
+      sources.forEach(addSource);
+      toast.success(`${sources.length} sources added from RSS`);
+      setOpen(false);
+      reset();
+    } catch {
+      setFailReason('Something went wrong reading this feed.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function submit() {
     if (tab === 'article') return handleArticle();
     if (tab === 'youtube') return handleYoutube();
     if (tab === 'video') return handleLocal();
+    if (tab === 'pdf') return handleFile('pdf');
+    if (tab === 'epub') return handleFile('epub');
+    if (tab === 'rss') return handleRss();
     return handlePaste();
   }
 
@@ -203,7 +255,10 @@ export function AddSourceModal({ projectId }: { projectId: string }) {
     tab === 'article' ? 'Fetch article'
       : tab === 'youtube' ? 'Add video'
         : tab === 'video' ? 'Add video'
-          : 'Save';
+          : tab === 'pdf' ? 'Add PDF'
+            : tab === 'epub' ? 'Add EPUB'
+              : tab === 'rss' ? 'Fetch feed'
+                : 'Save';
 
   return (
     <Modal
@@ -228,6 +283,15 @@ export function AddSourceModal({ projectId }: { projectId: string }) {
             onChange={(e) => setUrl(e.target.value)}
           />
         )}
+        {tab === 'rss' && (
+          <Input
+            label="RSS Feed URL"
+            placeholder="https://.../feed.xml"
+            value={url}
+            onChange={(e) => setUrl(e.target.value)}
+            hint={busy ? 'Reading feed…' : undefined}
+          />
+        )}
         {tab === 'youtube' && (
           <Input
             label="YouTube URL"
@@ -237,18 +301,23 @@ export function AddSourceModal({ projectId }: { projectId: string }) {
             hint={busy ? 'Reading video…' : undefined}
           />
         )}
-        {tab === 'video' && (
+        {(tab === 'video' || tab === 'pdf' || tab === 'epub') && (
           <div className={styles.filePick}>
-            <span>Video file</span>
+            <span>{tab === 'video' ? 'Video' : tab === 'pdf' ? 'PDF' : 'EPUB'} file</span>
             <button
               type="button"
               className={styles.fileName}
               onClick={async () => {
                 if (isTauri()) {
                   const { open } = await import('@tauri-apps/plugin-dialog');
+                  const filters = tab === 'video' 
+                    ? [{ name: 'Video', extensions: ['mp4', 'mov', 'mkv', 'webm', 'm4v'] }]
+                    : tab === 'pdf'
+                      ? [{ name: 'PDF', extensions: ['pdf'] }]
+                      : [{ name: 'EPUB', extensions: ['epub'] }];
                   const selected = await open({
                     multiple: false,
-                    filters: [{ name: 'Video', extensions: ['mp4', 'mov', 'mkv', 'webm', 'm4v'] }],
+                    filters,
                   });
                   if (typeof selected === 'string' && selected) {
                     setFilePath(selected);
@@ -256,15 +325,15 @@ export function AddSourceModal({ projectId }: { projectId: string }) {
                   }
                   return;
                 }
-                document.getElementById('alfred-local-video')?.click();
+                document.getElementById('alfred-local-file')?.click();
               }}
             >
               {fileName || 'Choose a file from this device'}
             </button>
             <input
-              id="alfred-local-video"
+              id="alfred-local-file"
               type="file"
-              accept="video/*"
+              accept={tab === 'video' ? 'video/*' : tab === 'pdf' ? '.pdf' : '.epub'}
               hidden
               onChange={(e) => {
                 const file = e.target.files?.[0];

@@ -1,9 +1,9 @@
 use crate::db;
 use crate::engines;
 use crate::ids::now;
-use crate::models::{GenerateArticleConfig, GenerateSocialConfig, LlmTokenEvent, SocialPost, WritingOutput};
+use crate::models::{GenerateArticleConfig, GenerateSocialConfig, SocialPost, WritingOutput};
 use crate::AppState;
-use tauri::{AppHandle, Emitter, State};
+use tauri::{AppHandle, State};
 
 async fn save_output(
     conn: &turso::Connection,
@@ -40,15 +40,6 @@ async fn save_output(
     Ok(())
 }
 
-fn stitch(context: &str, heading: &str) -> String {
-    let body = if context.trim().is_empty() {
-        "Add sources to this project, then generate again.".to_string()
-    } else {
-        engines::truncate_at_sentence(context, 4000)
-    };
-    format!("# {heading}\n\n{body}")
-}
-
 fn title_from_markdown(content: &str, fallback: &str) -> String {
     for line in content.lines() {
         let trimmed = line.trim();
@@ -62,17 +53,8 @@ fn title_from_markdown(content: &str, fallback: &str) -> String {
     fallback.to_string()
 }
 
-async fn llama_stream_or_stitch(app: &AppHandle, prompt: &str, fallback: String, n: u32) -> String {
-    match engines::llama_stream(prompt, n, app).await {
-        Ok(raw) if raw.trim().chars().count() > 40 => raw,
-        Ok(raw) if !raw.trim().is_empty() => raw,
-        _ => {
-            let _ = app.emit("llm:start", true);
-            let _ = app.emit("llm:token", LlmTokenEvent { token: fallback.clone() });
-            let _ = app.emit("llm:done", true);
-            fallback
-        }
-    }
+async fn llama_stream_required(app: &AppHandle, prompt: &str, n: u32) -> Result<String, String> {
+    engines::llama_stream(prompt, n, app).await
 }
 
 fn posts_from_markdown(writing_type: &str, content: &str, output_id: &str) -> Vec<SocialPost> {
@@ -162,7 +144,7 @@ pub async fn generate_article(
         config.length.as_deref().unwrap_or("medium"),
         config.topic
     );
-    let content = llama_stream_or_stitch(&app, &prompt, stitch(&context, &fallback_title), 900).await;
+    let content = llama_stream_required(&app, &prompt, 900).await?;
     let title = title_from_markdown(&content, &fallback_title);
     let output = WritingOutput {
         id: db::new_id("wrt"),
@@ -206,8 +188,7 @@ async fn generate_social(
         "{format}\nTone: {}\nTopic: {topic}\nStyle: {style}\n{extra}\n\nUse only these sources:\n{context}",
         config.tone.as_deref().unwrap_or("sharp")
     );
-    let fallback = stitch(&context, writing_type);
-    let content = llama_stream_or_stitch(&app, &prompt, fallback, 400).await;
+    let content = llama_stream_required(&app, &prompt, 400).await?;
     let output = WritingOutput {
         id: db::new_id("wrt"),
         project_id: config.project_id,
@@ -306,4 +287,57 @@ pub async fn delete_writing(id: String, state: State<'_, AppState>) -> Result<()
         .await
         .map_err(|e| e.to_string())?;
     Ok(())
+}
+
+#[tauri::command]
+pub async fn rewrite_writing(
+    app: AppHandle,
+    id: String,
+    action: String,
+    selection: Option<String>,
+    tone: Option<String>,
+    state: State<'_, AppState>,
+) -> Result<WritingOutput, String> {
+    let mut item = get_writing(id.clone(), state.clone())
+        .await?
+        .ok_or("We could not find that draft.")?;
+    let target = selection
+        .as_deref()
+        .filter(|s| !s.trim().is_empty())
+        .unwrap_or(item.content.as_str());
+    let instruction = match action.as_str() {
+        "expand" => "Expand this passage with more concrete detail. Keep the same claims. Markdown only.",
+        "shorten" => "Shorten this passage. Keep the same claims. Markdown only.",
+        _ => "Rewrite this passage more clearly. Keep the same claims. Markdown only.",
+    };
+    let prompt = format!(
+        "{instruction}\nTone: {}\n\nPassage:\n{target}",
+        tone.as_deref().or(item.tone.as_deref()).unwrap_or("professional")
+    );
+    let rewritten = llama_stream_required(&app, &prompt, 700).await?;
+    if let Some(sel) = selection.filter(|s| !s.trim().is_empty()) {
+        item.content = item.content.replacen(&sel, rewritten.trim(), 1);
+    } else {
+        item.content = rewritten;
+    }
+    let conn = state.connect()?;
+    conn.execute(
+        "UPDATE writing_outputs SET content = ?1 WHERE id = ?2",
+        (item.content.as_str(), id.as_str()),
+    )
+    .await
+    .map_err(|e| e.to_string())?;
+    Ok(item)
+}
+
+#[tauri::command]
+pub async fn export_writing(id: String, format: String, state: State<'_, AppState>) -> Result<String, String> {
+    let item = get_writing(id.clone(), state.clone())
+        .await?
+        .ok_or("We could not find that draft.")?;
+    let ext = if format == "txt" { "txt" } else { "md" };
+    let dest = state.data_dir.join("exports").join(format!("{id}.{ext}"));
+    std::fs::create_dir_all(dest.parent().unwrap()).map_err(|e| e.to_string())?;
+    std::fs::write(&dest, item.content).map_err(|e| e.to_string())?;
+    Ok(dest.to_string_lossy().into_owned())
 }

@@ -145,4 +145,11 @@ pub const MIGRATIONS: &[&str] = &[
     "CREATE INDEX IF NOT EXISTS idx_writing_project ON writing_outputs(project_id)",
     "CREATE INDEX IF NOT EXISTS idx_social_output ON social_posts(output_id)",
     "CREATE INDEX IF NOT EXISTS idx_jobs_project ON jobs(project_id)",
+    r#"CREATE TABLE IF NOT EXISTS video_presets (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      description TEXT NOT NULL,
+      aspect_ratio TEXT NOT NULL,
+      layout TEXT NOT NULL
+    )"#,
 ];
