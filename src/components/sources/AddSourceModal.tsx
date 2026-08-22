@@ -30,13 +30,16 @@ const VIDEO_TABS = [
   { id: 'video', label: 'From device' },
 ];
 
-async function refreshMedia(projectId: string) {
-  const [videos, transcripts] = await Promise.all([
+async function refreshLibrary(projectId: string) {
+  const [sources, videos, transcripts] = await Promise.all([
+    sourceService.list(projectId),
     videoService.list(projectId),
     transcriptService.list(projectId),
   ]);
-  useWorkspaceStore.getState().setVideos(videos);
-  useWorkspaceStore.getState().setTranscripts(transcripts);
+  const store = useWorkspaceStore.getState();
+  store.setSources(sources);
+  store.setVideos(videos);
+  store.setTranscripts(transcripts);
 }
 
 export function AddSourceModal({ projectId }: { projectId: string }) {
@@ -114,10 +117,9 @@ export function AddSourceModal({ projectId }: { projectId: string }) {
     }
   }
 
-  async function finishVideo(source: Source) {
-    addSource(source);
-    await refreshMedia(projectId);
-    toast.success('Source added. You can generate from it now.');
+  async function finishVideo(_source: Source) {
+    await refreshLibrary(projectId);
+    toast.success('Source added');
     setOpen(false);
     reset();
   }

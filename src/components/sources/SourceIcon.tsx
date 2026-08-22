@@ -1,4 +1,4 @@
-import { FileText, Film, Play, Type } from 'lucide-react';
+import { Captions, FileText, Film, Play, Type } from 'lucide-react';
 import type { SourceType } from '../../types';
 import styles from './SourceIcon.module.css';
 
@@ -7,6 +7,7 @@ const MAP: Record<SourceType, { icon: typeof FileText; className: string }> = {
   youtube: { icon: Play, className: styles.youtube },
   video: { icon: Film, className: styles.video },
   text: { icon: Type, className: styles.text },
+  transcript: { icon: Captions, className: styles.transcript },
 };
 
 export function SourceIcon({ type, size = 16 }: { type: SourceType; size?: number }) {

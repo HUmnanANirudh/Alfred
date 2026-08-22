@@ -26,11 +26,20 @@ function persistVideoFromSource(source: Source): Video {
   };
   const transcript = makeMockTranscript(source.projectId, video.id);
   const body = transcript.segments.map((s) => s.text).join('\n\n');
-  source.content = body;
-  source.excerpt = excerpt(body);
-  source.wordCount = wordCount(body);
+  const transcriptSource: Source = {
+    id: generateId('src'),
+    projectId: source.projectId,
+    type: 'transcript',
+    title: source.title,
+    content: body,
+    excerpt: excerpt(body),
+    wordCount: wordCount(body),
+    metadata: { type: 'transcript', videoSourceId: source.id, videoId: video.id },
+    createdAt: now(),
+  };
   db.videos.push(video);
   db.transcripts.push(transcript);
+  db.sources.push(transcriptSource);
   return video;
 }
 
@@ -145,6 +154,17 @@ export const sourceService = {
 
   async delete(id: string): Promise<void> {
     await delay(400);
+    const source = db.sources.find((s) => s.id === id);
     db.sources = db.sources.filter((s) => s.id !== id);
+    if (source && (source.type === 'youtube' || source.type === 'video')) {
+      db.sources = db.sources.filter(
+        (s) => !(s.metadata?.type === 'transcript' && s.metadata.videoSourceId === id),
+      );
+      const video = db.videos.find((v) => v.sourceId === id);
+      if (video) {
+        db.videos = db.videos.filter((v) => v.id !== video.id);
+        db.transcripts = db.transcripts.filter((t) => t.videoId !== video.id);
+      }
+    }
   },
 };

@@ -82,10 +82,7 @@ export function WritingArticlePage() {
 
   return (
     <div className={styles.page}>
-      <PageHeader
-        title="Write an Article"
-        actions={<Button variant="primary" onClick={() => setAdd(true)}>Add source</Button>}
-      />
+      <PageHeader title="Write an Article" />
       <div className={styles.stack}>
         <Input label="Title" placeholder="The Future of AI" value={title} onChange={(e) => setTitle(e.target.value)} />
         <Input

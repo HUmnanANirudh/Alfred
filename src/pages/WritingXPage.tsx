@@ -73,10 +73,7 @@ export function WritingXPage() {
 
   return (
     <div className={styles.page}>
-      <PageHeader
-        title="X"
-        actions={<Button variant="primary" onClick={() => setAdd(true)}>Add source</Button>}
-      />
+      <PageHeader title="X" />
       <Tabs
         tabs={[{ id: 'post', label: 'Short post' }, { id: 'thread', label: 'Thread' }]}
         value={tab}

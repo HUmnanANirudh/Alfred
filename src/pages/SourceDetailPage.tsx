@@ -4,6 +4,7 @@ import { SourceIcon } from '../components/sources/SourceIcon';
 import { Button } from '../components/ui/Button';
 import { sourceService } from '../services/sourceService';
 import { toast } from '../store/toastStore';
+import { hydrateWorkspace } from '../store/hydrate';
 import { useWorkspaceStore } from '../store/workspaceStore';
 import { formatDate, formatDuration, formatWordCount } from '../utils/format';
 import styles from './page.module.css';
@@ -13,17 +14,19 @@ export function SourceDetailPage() {
   const source = useWorkspaceStore((s) => s.sources.find((x) => x.id === srcId));
   const videos = useWorkspaceStore((s) => s.videos);
   const transcripts = useWorkspaceStore((s) => s.transcripts);
-  const removeSource = useWorkspaceStore((s) => s.removeSource);
   const navigate = useNavigate();
 
   const video = videos.find((v) => v.sourceId === source?.id);
-  const transcript = transcripts.find((t) => t.videoId === video?.id);
+  const transcriptMeta = source?.metadata?.type === 'transcript' ? source.metadata : undefined;
+  const transcript = transcriptMeta
+    ? transcripts.find((t) => t.videoId === transcriptMeta.videoId)
+    : transcripts.find((t) => t.videoId === video?.id);
   const isVideoSource = source?.type === 'youtube' || source?.type === 'video';
 
   async function handleDelete() {
     if (!srcId) return;
     await sourceService.delete(srcId);
-    removeSource(srcId);
+    if (id) await hydrateWorkspace(id);
     toast.info('Source removed');
     navigate(`/projects/${id}/video`);
   }

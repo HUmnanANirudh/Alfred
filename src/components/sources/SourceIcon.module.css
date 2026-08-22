@@ -7,3 +7,4 @@
 .youtube { color: var(--color-error); }
 .video { color: var(--color-accent-dim); }
 .text { color: var(--color-text-tertiary); }
+.transcript { color: var(--color-info); }

@@ -28,8 +28,6 @@ export function AudioPage() {
   const [job, setJob] = useState<Job | null>(null);
   const [busy, setBusy] = useState(false);
 
-  const hasLibrary = sources.length > 0;
-
   function scriptFromSources() {
     return sources
       .filter((s) => sourceIds.includes(s.id))
@@ -73,14 +71,7 @@ export function AudioPage() {
 
   return (
     <div className={styles.page}>
-      <PageHeader
-        title="Audio"
-        actions={
-          <Button variant={hasLibrary ? 'ghost' : 'primary'} onClick={() => setAdd(true, 'text')}>
-            Add source
-          </Button>
-        }
-      />
+      <PageHeader title="Audio" />
 
       <div className={styles.stack}>
         {id && (

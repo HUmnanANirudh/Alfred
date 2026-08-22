@@ -52,10 +52,7 @@ export function WritingLinkedInPage() {
 
   return (
     <div className={styles.page}>
-      <PageHeader
-        title="LinkedIn"
-        actions={<Button variant="primary" onClick={() => setAdd(true)}>Add source</Button>}
-      />
+      <PageHeader title="LinkedIn" />
       <div className={styles.stack}>
         <Input
           label="Topic"

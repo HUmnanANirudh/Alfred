@@ -43,7 +43,7 @@ export type ProjectStats = {
 // Source
 // ------------------------------------------------------------
 
-export type SourceType = "article" | "youtube" | "video" | "text";
+export type SourceType = "article" | "youtube" | "video" | "text" | "transcript";
 
 export type Source = {
   id: string;                    // "src_" + nanoid
@@ -62,7 +62,8 @@ export type SourceMetadata =
   | ArticleMetadata
   | YouTubeMetadata
   | VideoMetadata
-  | TextMetadata;
+  | TextMetadata
+  | TranscriptSourceMetadata;
 
 export type ArticleMetadata = {
   type: "article";
@@ -89,6 +90,12 @@ export type VideoMetadata = {
 
 export type TextMetadata = {
   type: "text";
+};
+
+export type TranscriptSourceMetadata = {
+  type: "transcript";
+  videoSourceId: string;
+  videoId?: string;
 };
 
 // ------------------------------------------------------------

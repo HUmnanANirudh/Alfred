@@ -3,11 +3,9 @@ import { useParams } from 'react-router-dom';
 import { Library } from 'lucide-react';
 import { PageHeader } from '../components/layout/PageHeader';
 import { SourceCard } from '../components/sources/SourceCard';
-import { Button } from '../components/ui/Button';
 import { EmptyState } from '../components/ui/EmptyState';
 import { Input } from '../components/ui/Input';
 import { Select } from '../components/ui/Select';
-import { useUiStore } from '../store/uiStore';
 import { useWorkspaceStore } from '../store/workspaceStore';
 import type { SourceType } from '../types';
 import styles from './page.module.css';
@@ -15,7 +13,6 @@ import styles from './page.module.css';
 export function SourcesPage() {
   const { id } = useParams<{ id: string }>();
   const sources = useWorkspaceStore((s) => s.sources);
-  const setAdd = useUiStore((s) => s.setAddSourceOpen);
   const [query, setQuery] = useState('');
   const [type, setType] = useState<'all' | SourceType>('all');
 
@@ -30,10 +27,7 @@ export function SourcesPage() {
 
   return (
     <div className={styles.page}>
-      <PageHeader
-        title="Sources"
-        actions={<Button variant="primary" onClick={() => setAdd(true)}>Add source</Button>}
-      />
+      <PageHeader title="Sources" />
       <div className={styles.toolbar}>
         <Input placeholder="Search sources" value={query} onChange={(e) => setQuery(e.target.value)} />
         <Select value={type} onChange={(e) => setType(e.target.value as 'all' | SourceType)}>
@@ -42,14 +36,13 @@ export function SourcesPage() {
           <option value="youtube">YouTube</option>
           <option value="video">Local video</option>
           <option value="text">Pasted</option>
+          <option value="transcript">Transcript</option>
         </Select>
       </div>
       {sources.length === 0 ? (
         <EmptyState
           icon={<Library size={40} strokeWidth={1.25} />}
           title="Your project has no sources yet"
-          actionLabel="Add source"
-          onAction={() => setAdd(true)}
         />
       ) : (
         <div className={styles.stack}>

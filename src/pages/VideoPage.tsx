@@ -5,9 +5,9 @@ import { PageHeader } from '../components/layout/PageHeader';
 import { ProcessingPanel } from '../components/video/ProcessingPanel';
 import { GenerateShortsModal } from '../components/video/GenerateShortsModal';
 import { ShortCard } from '../components/video/ShortCard';
+import { SourceSelector } from '../components/sources/SourceSelector';
 import { Button } from '../components/ui/Button';
 import { EmptyState } from '../components/ui/EmptyState';
-import { Select } from '../components/ui/Select';
 import { shortService } from '../services/shortService';
 import { toast } from '../store/toastStore';
 import { useUiStore } from '../store/uiStore';
@@ -23,22 +23,18 @@ export function VideoPage() {
   const setActiveJob = useWorkspaceStore((s) => s.setActiveJob);
   const setAdd = useUiStore((s) => s.setAddSourceOpen);
 
-  const [videoId, setVideoId] = useState('');
+  const [sourceIds, setSourceIds] = useState<string[]>([]);
   const [modalOpen, setModalOpen] = useState(false);
   const [job, setJob] = useState<Job | null>(null);
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    if (!videos.length) {
-      setVideoId('');
-      return;
-    }
-    if (!videos.some((v) => v.id === videoId)) {
-      setVideoId(videos[0].id);
-    }
-  }, [videos, videoId]);
+    if (sourceIds.length > 0) return;
+    const first = videos.find((v) => v.sourceId)?.sourceId;
+    if (first) setSourceIds([first]);
+  }, [sourceIds.length, videos]);
 
-  const chosen = videos.find((v) => v.id === videoId);
+  const chosen = videos.find((v) => v.sourceId && sourceIds.includes(v.sourceId)) ?? videos[0];
 
   async function generate(config: {
     presetId: string;
@@ -46,8 +42,8 @@ export function VideoPage() {
     captionStyle: string;
     numberOfClips: number;
   }) {
-    if (!id || !videoId) {
-      toast.error('Add a video source, then generate.');
+    if (!id || !chosen) {
+      toast.error('Select a video, then generate.');
       return;
     }
     setModalOpen(false);
@@ -56,8 +52,8 @@ export function VideoPage() {
       await shortService.create(
         {
           projectId: id,
-          videoId,
-          sourceIds: chosen?.sourceId ? [chosen.sourceId] : undefined,
+          videoId: chosen.id,
+          sourceIds,
           presetId: config.presetId,
           captionsEnabled: config.captionsEnabled,
           captionStyle: config.captionStyle,
@@ -80,38 +76,20 @@ export function VideoPage() {
     }
   }
 
-  function addVideoSource() {
-    setAdd(true, 'video');
-  }
-
   return (
     <div className={styles.page}>
-      <PageHeader
-        title="Video"
-        actions={<Button variant="primary" onClick={addVideoSource}>Add source</Button>}
-      />
+      <PageHeader title="Video" />
 
-      {videos.length === 0 ? (
-        <EmptyState
-          icon={<Clapperboard size={40} strokeWidth={1.25} />}
-          title="No video sources yet"
-          actionLabel="Add source"
-          onAction={addVideoSource}
-        />
-      ) : (
+      {id && (
         <div className={styles.stack}>
-          <Select
-            label="Video"
-            value={videoId}
-            onChange={(e) => setVideoId(e.target.value)}
-          >
-            {videos.map((video) => (
-              <option key={video.id} value={video.id}>
-                {video.title}{video.hasTranscript ? ' · transcript' : ''}
-              </option>
-            ))}
-          </Select>
-          <Button variant="primary" disabled={!videoId} onClick={() => setModalOpen(true)}>
+          <SourceSelector
+            projectId={id}
+            selected={sourceIds}
+            onChange={setSourceIds}
+            variant="video"
+            emptyAction={{ label: 'Add source', onClick: () => setAdd(true, 'video') }}
+          />
+          <Button variant="primary" disabled={!chosen || busy} onClick={() => setModalOpen(true)}>
             Generate shorts
           </Button>
         </div>
@@ -127,7 +105,7 @@ export function VideoPage() {
         <div className={styles.stack} style={{ marginTop: 32 }}>
           {shorts.map((short) => <ShortCard key={short.id} short={short} />)}
         </div>
-      ) : videos.length > 0 && !busy ? (
+      ) : !busy ? (
         <EmptyState
           icon={<Clapperboard size={40} strokeWidth={1.25} />}
           title="Nothing generated yet"

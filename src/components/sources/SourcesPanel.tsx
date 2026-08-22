@@ -7,6 +7,11 @@ import { Button } from '../ui/Button';
 import { SourceIcon } from './SourceIcon';
 import styles from './SourcesPanel.module.css';
 
+function sourceKind(type: string) {
+  if (type === 'youtube' || type === 'video') return 'video';
+  return type;
+}
+
 export function SourcesPanel() {
   const { id } = useParams<{ id: string }>();
   const sources = useWorkspaceStore((s) => s.sources);
@@ -28,7 +33,7 @@ export function SourcesPanel() {
             <SourceIcon type={source.type} />
             <div className={styles.meta}>
               <span className={styles.name}>{source.title}</span>
-              <span className={styles.sub}>{source.type} · {formatDate(source.createdAt)}</span>
+              <span className={styles.sub}>{sourceKind(source.type)} · {formatDate(source.createdAt)}</span>
             </div>
           </Link>
         ))}

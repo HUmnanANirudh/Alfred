@@ -322,9 +322,17 @@ export function seedProjectLibrary(projectId: string) {
   };
   const transcript = buildTranscript(projectId, video.id);
   const body = transcript.segments.map((s) => s.text).join('\n\n');
-  youtube.content = body;
-  youtube.excerpt = excerpt(body);
-  youtube.wordCount = wordCount(body);
+  const transcriptSource: Source = {
+    id: generateId('src'),
+    projectId,
+    type: 'transcript',
+    title: youtube.title,
+    content: body,
+    excerpt: excerpt(body),
+    wordCount: wordCount(body),
+    metadata: { type: 'transcript', videoSourceId: youtube.id, videoId: video.id },
+    createdAt: stamp,
+  };
 
   const draftA: AudioGeneration = {
     id: generateId('aud'),
@@ -350,12 +358,12 @@ export function seedProjectLibrary(projectId: string) {
     duration: 28,
     engine: 'qwen3_tts',
     status: 'done',
-    sourceIds: [youtube.id],
+    sourceIds: [transcriptSource.id],
     createdAt: stamp,
     updatedAt: stamp,
   };
 
-  db.sources.push(article, notes, youtube);
+  db.sources.push(article, notes, youtube, transcriptSource);
   db.videos.push(video);
   db.transcripts.push(transcript);
   db.audio.push(draftA, draftB);
