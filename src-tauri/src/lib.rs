@@ -1,6 +1,7 @@
 mod commands;
 mod db;
 mod engines;
+mod file_server;
 mod ids;
 mod jobs;
 mod models;
@@ -46,9 +47,14 @@ pub fn run() {
                 audio: Mutex::new(None),
             });
             let handle = app.handle().clone();
+            let data_dir_clone = dir.clone();
             tauri::async_runtime::spawn(async move {
                 let state = handle.state::<AppState>();
                 engines::ensure_sidecars(&state.data_dir, &state.llama, &state.audio).await;
+            });
+            // Start local file server for video/audio playback
+            tauri::async_runtime::spawn(async move {
+                file_server::start_file_server(data_dir_clone).await;
             });
             Ok(())
         })
@@ -121,7 +127,7 @@ pub fn run() {
             commands::models::install_model,
             commands::models::uninstall_model,
             commands::models::get_storage_usage,
-            commands::files::read_file_as_data_url,
+            commands::files::get_file_server_url,
             commands::health::engine_health,
         ])
         .run(tauri::generate_context!())

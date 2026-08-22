@@ -51,22 +51,29 @@ export async function withLlmTokens<T>(
   }
 }
 
+let _serverUrl: string | null = null;
+
+async function getFileServerUrl(): Promise<string> {
+  if (_serverUrl) return _serverUrl;
+  try {
+    _serverUrl = await invoke<string>('get_file_server_url');
+  } catch {
+    // ignore
+  }
+  return _serverUrl ?? '';
+}
+
 export async function assetUrl(path: string): Promise<string> {
   if (!isTauri()) return path;
-  // Try asset protocol first
-  try {
-    const url = convertFileSrc(path);
-    if (url && url !== 'undefined' && url !== 'null') {
-      return url;
-    }
-  } catch {
-    // fall through
+  // Local HTTP file server — works on all platforms including Linux GTK
+  const serverUrl = await getFileServerUrl();
+  if (serverUrl) {
+    return `${serverUrl}/${encodeURIComponent(path)}`;
   }
-  // Fallback: read file as data URL via Rust command
+  // Fallback: try asset protocol (works on macOS/Windows)
   try {
-    return await invoke<string>('read_file_as_data_url', { path });
-  } catch (e) {
-    console.error('[assetUrl] Failed to load file:', path, e);
+    return convertFileSrc(path);
+  } catch {
     return '';
   }
 }

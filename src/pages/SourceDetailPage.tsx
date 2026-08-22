@@ -42,12 +42,13 @@ export function SourceDetailPage() {
     setCurrentTime(0);
     if (videoToPlay?.filePath) {
       assetUrl(videoToPlay.filePath).then((url) => {
+        console.log('[Video] Asset URL resolved:', url?.substring(0, 100));
         if (url) {
           setVideoUrl(url);
         } else {
           setVideoError(true);
         }
-      }).catch(() => setVideoError(true));
+      }).catch((e) => { console.error('[Video] assetUrl failed:', e); setVideoError(true); });
     } else {
       setVideoUrl('');
     }
@@ -124,8 +125,8 @@ export function SourceDetailPage() {
               style={{ width: '100%', borderRadius: 'var(--radius-lg)', background: '#000', maxHeight: '500px' }}
               src={videoUrl}
               onTimeUpdate={(e) => setCurrentTime(e.currentTarget.currentTime)}
-              onError={() => {
-                console.error('[Video] Failed to load:', videoUrl);
+              onError={(e) => {
+                console.error('[Video] Failed to load:', videoUrl?.substring(0, 100), e);
                 setVideoError(true);
               }}
             />
