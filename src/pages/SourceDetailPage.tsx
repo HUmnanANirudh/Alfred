@@ -4,6 +4,7 @@ import { PageHeader } from '../components/layout/PageHeader';
 import { Button } from '../components/ui/Button';
 import { sourceService } from '../services/sourceService';
 import { transcriptService } from '../services/transcriptService';
+import { modelService } from '../services/modelService';
 import { toast } from '../store/toastStore';
 import { hydrateWorkspace } from '../store/hydrate';
 import { useWorkspaceStore } from '../store/workspaceStore';
@@ -21,6 +22,8 @@ export function SourceDetailPage() {
   const [videoUrl, setVideoUrl] = useState('');
   const [currentTime, setCurrentTime] = useState(0);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [videoError, setVideoError] = useState(false);
+  const [engineHealth, setEngineHealth] = useState<{ audio: boolean; ffmpeg: boolean } | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
 
   const video = videos.find((v) => v.sourceId === source?.id);
@@ -35,10 +38,24 @@ export function SourceDetailPage() {
     : video;
 
   useEffect(() => {
+    setVideoError(false);
+    setCurrentTime(0);
     if (videoToPlay?.filePath) {
-      assetUrl(videoToPlay.filePath).then(setVideoUrl).catch(console.error);
+      assetUrl(videoToPlay.filePath).then((url) => {
+        if (url) {
+          setVideoUrl(url);
+        } else {
+          setVideoError(true);
+        }
+      }).catch(() => setVideoError(true));
+    } else {
+      setVideoUrl('');
     }
   }, [videoToPlay?.filePath]);
+
+  useEffect(() => {
+    modelService.engineHealth().then(setEngineHealth).catch(() => {});
+  }, []);
 
   async function handleDelete() {
     if (!srcId) return;
@@ -55,7 +72,7 @@ export function SourceDetailPage() {
         actions={
           <>
             {isVideoSource && video && !transcript && video.filePath && (
-              <Button variant="primary" disabled={isGenerating} onClick={async () => {
+              <Button variant="primary" disabled={isGenerating || (engineHealth != null && !engineHealth.audio)} onClick={async () => {
                 setIsGenerating(true);
                 try {
                   toast.info('Generating transcript...');
@@ -85,20 +102,44 @@ export function SourceDetailPage() {
         }
       />
 
+      {isVideoSource && video && video.filePath && !transcript && engineHealth && !engineHealth.audio && (
+        <div style={{
+          padding: '12px 16px', marginBottom: 16,
+          background: 'var(--color-warning-dim)',
+          border: '1px solid var(--color-warning)',
+          borderRadius: 'var(--radius-md)',
+          color: 'var(--color-warning)',
+          fontSize: 'var(--text-sm)',
+        }}>
+          ⚠️ audio.cpp is not running — transcription unavailable. Start <code>audiocpp_server</code> on port 8766.
+        </div>
+      )}
+
       <div style={{ display: 'flex', gap: '24px', alignItems: 'flex-start' }}>
         <div style={{ flex: 1, position: 'sticky', top: '100px' }}>
-          {videoUrl ? (
+          {videoUrl && !videoError ? (
             <video 
               ref={videoRef}
               controls 
               style={{ width: '100%', borderRadius: 'var(--radius-lg)', background: '#000', maxHeight: '500px' }}
               src={videoUrl}
               onTimeUpdate={(e) => setCurrentTime(e.currentTarget.currentTime)}
+              onError={() => {
+                console.error('[Video] Failed to load:', videoUrl);
+                setVideoError(true);
+              }}
             />
           ) : isVideoSource ? (
             <div style={{ width: '100%', aspectRatio: '16/9', background: '#000', borderRadius: 'var(--radius-lg)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: '#888', gap: 8, padding: 24, textAlign: 'center' }}>
               <span style={{ fontSize: 32 }}>🎬</span>
-              {video?.filePath ? (
+              {videoError ? (
+                <>
+                  <span style={{ color: 'var(--color-error)' }}>Could not load video</span>
+                  <span style={{ fontSize: 'var(--text-sm)', color: 'var(--color-text-tertiary)' }}>
+                    The file exists but the player couldn't access it. Try restarting the app.
+                  </span>
+                </>
+              ) : video?.filePath ? (
                 <span>Loading video...</span>
               ) : (
                 <>

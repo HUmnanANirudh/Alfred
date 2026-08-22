@@ -53,5 +53,20 @@ export async function withLlmTokens<T>(
 
 export async function assetUrl(path: string): Promise<string> {
   if (!isTauri()) return path;
-  return convertFileSrc(path);
+  // Try asset protocol first
+  try {
+    const url = convertFileSrc(path);
+    if (url && url !== 'undefined' && url !== 'null') {
+      return url;
+    }
+  } catch {
+    // fall through
+  }
+  // Fallback: read file as data URL via Rust command
+  try {
+    return await invoke<string>('read_file_as_data_url', { path });
+  } catch (e) {
+    console.error('[assetUrl] Failed to load file:', path, e);
+    return '';
+  }
 }

@@ -121,6 +121,7 @@ pub fn run() {
             commands::models::install_model,
             commands::models::uninstall_model,
             commands::models::get_storage_usage,
+            commands::files::read_file_as_data_url,
             commands::health::engine_health,
         ])
         .run(tauri::generate_context!())

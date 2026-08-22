@@ -1,4 +1,5 @@
 pub mod audio;
+pub mod files;
 pub mod health;
 pub mod models;
 pub mod projects;

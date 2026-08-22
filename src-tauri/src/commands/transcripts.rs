@@ -80,7 +80,12 @@ pub async fn generate_transcript(
         match engines::audio_transcribe(&wav.to_string_lossy()).await {
             Ok(t) => t,
             Err(e) => {
-                jobs::finish(&mut job, false, Some(e));
+                let msg = if e.contains("not reachable") || e.contains("Connection refused") {
+                    "audio.cpp is not running. Start audiocpp_server to enable transcription."
+                } else {
+                    &e
+                };
+                jobs::finish(&mut job, false, Some(msg.into()));
                 jobs::emit(&app, &job);
                 return Ok(job);
             }
@@ -89,7 +94,7 @@ pub async fn generate_transcript(
         jobs::finish(
             &mut job,
             false,
-            Some("No local video file to transcribe. Add a file or download with yt-dlp first.".into()),
+            Some("No local video file to transcribe. The video may not have downloaded yet.".into()),
         );
         jobs::emit(&app, &job);
         return Ok(job);

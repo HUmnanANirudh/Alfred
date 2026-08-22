@@ -31,3 +31,4 @@ thiserror = "2"
 scraper = "0.23"
 pdf-extract = "0.8"
 zip = { version = "2", default-features = false, features = ["deflate"] }
+base64 = "0.22"
