@@ -1,0 +1,138 @@
+pub const MIGRATIONS: &[&str] = &[
+    r#"CREATE TABLE IF NOT EXISTS projects (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      description TEXT,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    )"#,
+    r#"CREATE TABLE IF NOT EXISTS sources (
+      id TEXT PRIMARY KEY,
+      project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+      type TEXT NOT NULL,
+      title TEXT NOT NULL,
+      content TEXT,
+      url TEXT,
+      word_count INTEGER,
+      excerpt TEXT,
+      metadata TEXT,
+      created_at TEXT NOT NULL
+    )"#,
+    r#"CREATE TABLE IF NOT EXISTS videos (
+      id TEXT PRIMARY KEY,
+      project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+      source_id TEXT REFERENCES sources(id),
+      title TEXT NOT NULL,
+      duration REAL,
+      file_path TEXT,
+      thumbnail_path TEXT,
+      url TEXT,
+      has_transcript INTEGER DEFAULT 0,
+      created_at TEXT NOT NULL
+    )"#,
+    r#"CREATE TABLE IF NOT EXISTS transcripts (
+      id TEXT PRIMARY KEY,
+      video_id TEXT NOT NULL REFERENCES videos(id) ON DELETE CASCADE,
+      project_id TEXT NOT NULL,
+      segments TEXT NOT NULL,
+      language TEXT,
+      engine TEXT,
+      created_at TEXT NOT NULL
+    )"#,
+    r#"CREATE TABLE IF NOT EXISTS shorts (
+      id TEXT PRIMARY KEY,
+      project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+      video_id TEXT NOT NULL,
+      preset_id TEXT NOT NULL,
+      title TEXT,
+      duration REAL,
+      file_path TEXT,
+      thumbnail_path TEXT,
+      hook TEXT,
+      confidence REAL,
+      transcript_excerpt TEXT,
+      captions_enabled INTEGER DEFAULT 1,
+      caption_style TEXT,
+      status TEXT NOT NULL DEFAULT 'idle',
+      created_at TEXT NOT NULL
+    )"#,
+    r#"CREATE TABLE IF NOT EXISTS audio_generations (
+      id TEXT PRIMARY KEY,
+      project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+      voice_id TEXT NOT NULL,
+      voice_name TEXT NOT NULL,
+      title TEXT,
+      script TEXT NOT NULL,
+      duration REAL,
+      file_path TEXT,
+      engine TEXT,
+      status TEXT NOT NULL DEFAULT 'idle',
+      source_ids TEXT,
+      created_at TEXT NOT NULL,
+      updated_at TEXT
+    )"#,
+    r#"CREATE TABLE IF NOT EXISTS writing_outputs (
+      id TEXT PRIMARY KEY,
+      project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+      type TEXT NOT NULL,
+      title TEXT,
+      content TEXT NOT NULL,
+      source_ids TEXT NOT NULL,
+      tone TEXT,
+      model TEXT,
+      status TEXT NOT NULL DEFAULT 'idle',
+      created_at TEXT NOT NULL
+    )"#,
+    r#"CREATE TABLE IF NOT EXISTS social_posts (
+      id TEXT PRIMARY KEY,
+      output_id TEXT NOT NULL REFERENCES writing_outputs(id) ON DELETE CASCADE,
+      idx INTEGER NOT NULL,
+      content TEXT NOT NULL
+    )"#,
+    r#"CREATE TABLE IF NOT EXISTS voices (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      sample_path TEXT,
+      engine TEXT NOT NULL,
+      is_default INTEGER DEFAULT 0,
+      is_cloned INTEGER DEFAULT 0,
+      created_at TEXT NOT NULL
+    )"#,
+    r#"CREATE TABLE IF NOT EXISTS clip_candidates (
+      id TEXT PRIMARY KEY,
+      transcript_id TEXT NOT NULL,
+      video_id TEXT NOT NULL,
+      project_id TEXT NOT NULL,
+      start_time REAL NOT NULL,
+      end_time REAL NOT NULL,
+      hook_score REAL,
+      visual_score REAL,
+      speech_score REAL,
+      hook_text TEXT,
+      reason TEXT,
+      created_at TEXT NOT NULL
+    )"#,
+    r#"CREATE TABLE IF NOT EXISTS jobs (
+      id TEXT PRIMARY KEY,
+      type TEXT NOT NULL,
+      status TEXT NOT NULL,
+      project_id TEXT,
+      payload TEXT,
+      result TEXT,
+      error TEXT,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    )"#,
+    r#"CREATE TABLE IF NOT EXISTS installed_models (
+      id TEXT PRIMARY KEY,
+      family TEXT NOT NULL,
+      engine TEXT NOT NULL,
+      role TEXT NOT NULL,
+      display_name TEXT NOT NULL,
+      file_path TEXT,
+      size_bytes INTEGER,
+      status TEXT NOT NULL,
+      is_default INTEGER DEFAULT 0,
+      installed_at TEXT
+    )"#,
+];

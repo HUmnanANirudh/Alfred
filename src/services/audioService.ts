@@ -2,6 +2,7 @@ import type { AudioGeneration, GenerateAudioConfig, Job } from '../types';
 import { generateId } from '../utils/id';
 import { delay, now } from '../utils/mock';
 import { runJob, type JobProgressHandler } from './jobRunner';
+import { invokeCmd, isTauri, withJobProgress } from './ipc';
 import { db } from './memory';
 
 function titleFromScript(script: string, fallback = 'Untitled draft') {
@@ -12,6 +13,7 @@ function titleFromScript(script: string, fallback = 'Untitled draft') {
 
 export const audioService = {
   async list(projectId: string): Promise<AudioGeneration[]> {
+    if (isTauri()) return invokeCmd<AudioGeneration[]>('list_audio', { projectId });
     await delay(400);
     return db.audio
       .filter((a) => a.projectId === projectId)
@@ -21,12 +23,16 @@ export const audioService = {
   },
 
   async get(id: string): Promise<AudioGeneration | null> {
+    if (isTauri()) return invokeCmd<AudioGeneration | null>('get_audio', { id });
     await delay(250);
     const item = db.audio.find((a) => a.id === id);
     return item ? { ...item } : null;
   },
 
   async generate(config: GenerateAudioConfig, onProgress?: JobProgressHandler): Promise<Job> {
+    if (isTauri()) {
+      return withJobProgress(() => invokeCmd<Job>('generate_audio', { config }), onProgress);
+    }
     const voice = db.voices.find((v) => v.id === config.voiceId);
     const job = await runJob(
       'generate_audio',
@@ -63,6 +69,15 @@ export const audioService = {
     id: string,
     updates: Partial<Pick<AudioGeneration, 'title' | 'script' | 'voiceId' | 'voiceName'>>,
   ): Promise<AudioGeneration> {
+    if (isTauri()) {
+      return invokeCmd<AudioGeneration>('update_audio', {
+        id,
+        title: updates.title,
+        script: updates.script,
+        voiceId: updates.voiceId,
+        voiceName: updates.voiceName,
+      });
+    }
     await delay(350);
     const item = db.audio.find((a) => a.id === id);
     if (!item) throw new Error('We could not find that audio.');
@@ -76,6 +91,9 @@ export const audioService = {
   },
 
   async render(id: string, voiceId: string, onProgress?: JobProgressHandler): Promise<Job> {
+    if (isTauri()) {
+      return withJobProgress(() => invokeCmd<Job>('render_audio', { id, voiceId }), onProgress);
+    }
     const item = db.audio.find((a) => a.id === id);
     if (!item) throw new Error('We could not find that audio.');
     const voice = db.voices.find((v) => v.id === voiceId);
@@ -99,9 +117,9 @@ export const audioService = {
   },
 
   async regenerate(id: string, onProgress?: JobProgressHandler): Promise<Job> {
-    const item = db.audio.find((a) => a.id === id);
+    const item = isTauri() ? await this.get(id) : db.audio.find((a) => a.id === id);
     if (!item) throw new Error('We could not find that audio.');
-    item.status = 'running';
+    if (!isTauri()) item.status = 'running';
     const job = await this.generate(
       {
         projectId: item.projectId,
@@ -112,11 +130,12 @@ export const audioService = {
       },
       onProgress,
     );
-    db.audio = db.audio.filter((a) => a.id !== id);
+    if (!isTauri()) db.audio = db.audio.filter((a) => a.id !== id);
     return job;
   },
 
   async delete(id: string): Promise<void> {
+    if (isTauri()) return invokeCmd('delete_audio', { id });
     await delay(350);
     db.audio = db.audio.filter((a) => a.id !== id);
   },

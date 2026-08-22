@@ -14,6 +14,7 @@ export function GlobalLayout() {
         {fallback && <NavLink to={`/projects/${fallback}`} className={styles.link}>Back to project</NavLink>}
         <NavLink to="/" className={styles.link}>Workspace</NavLink>
         <NavLink to="/voices" className={({ isActive }) => `${styles.link} ${isActive ? styles.active : ''}`}>Voices</NavLink>
+        <NavLink to="/models" className={({ isActive }) => `${styles.link} ${isActive ? styles.active : ''}`}>Models</NavLink>
       </aside>
       <main className={styles.main}>
         <Outlet />

@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { NavLink, useParams } from 'react-router-dom';
-import { Mic2 } from 'lucide-react';
+import { Cpu, Mic2 } from 'lucide-react';
 import { ProjectSwitcher } from '../sidebar/ProjectSwitcher';
 import { useUiStore } from '../../store/uiStore';
 import styles from './AppMenu.module.css';
@@ -23,6 +23,7 @@ export function AppMenu() {
   if (!open) return null;
 
   const voicesTo = id ? `/projects/${id}/voices` : '/voices';
+  const modelsTo = id ? `/projects/${id}/models` : '/models';
 
   return (
     <div className={styles.overlay} onMouseDown={() => setOpen(false)}>
@@ -42,6 +43,14 @@ export function AppMenu() {
           >
             <Mic2 size={14} />
             Voices
+          </NavLink>
+          <NavLink
+            to={modelsTo}
+            className={({ isActive }) => `${styles.link} ${isActive ? styles.active : ''}`}
+            onClick={() => setOpen(false)}
+          >
+            <Cpu size={14} />
+            Models
           </NavLink>
         </nav>
       </aside>

@@ -1,6 +1,7 @@
 import type { AddYouTubeResult, FetchArticleResult, Source, Video } from '../types';
 import { generateId } from '../utils/id';
 import { delay, excerpt, failWith, now, wordCount, youtubeIdFromUrl } from '../utils/mock';
+import { invokeCmd, isTauri } from './ipc';
 import { db, MOCK_ARTICLE, makeMockTranscript } from './memory';
 
 const FAIL_REASONS: Array<Extract<FetchArticleResult, { success: false }>['reason']> = [
@@ -45,17 +46,20 @@ function persistVideoFromSource(source: Source): Video {
 
 export const sourceService = {
   async list(projectId: string): Promise<Source[]> {
+    if (isTauri()) return invokeCmd<Source[]>('list_sources', { projectId });
     await delay(400);
     return db.sources.filter((s) => s.projectId === projectId).map((s) => ({ ...s }));
   },
 
   async get(id: string): Promise<Source | null> {
+    if (isTauri()) return invokeCmd<Source | null>('get_source', { id });
     await delay(250);
     const source = db.sources.find((s) => s.id === id);
     return source ? { ...source } : null;
   },
 
   async fetchArticle(url: string): Promise<FetchArticleResult> {
+    if (isTauri()) return invokeCmd<FetchArticleResult>('fetch_article', { url });
     await delay(1800);
     if (failWith(0.2)) {
       const reason = FAIL_REASONS[Math.floor(Math.random() * FAIL_REASONS.length)] ?? 'extraction_failed';
@@ -82,6 +86,7 @@ export const sourceService = {
   },
 
   async addYouTube(projectId: string, url: string): Promise<AddYouTubeResult> {
+    if (isTauri()) return invokeCmd<AddYouTubeResult>('add_youtube', { projectId, url });
     await delay(2200);
     const videoId = youtubeIdFromUrl(url);
     if (!videoId) {
@@ -112,6 +117,7 @@ export const sourceService = {
   },
 
   async addText(projectId: string, title: string, content: string): Promise<Source> {
+    if (isTauri()) return invokeCmd<Source>('add_text', { projectId, title, content });
     await delay(500);
     const source: Source = {
       id: generateId('src'),
@@ -129,6 +135,7 @@ export const sourceService = {
   },
 
   async add(source: Omit<Source, 'id' | 'createdAt'>): Promise<Source> {
+    if (isTauri()) return invokeCmd<Source>('add_source', { source });
     await delay(600);
     const created: Source = {
       ...source,
@@ -145,6 +152,13 @@ export const sourceService = {
   },
 
   async update(id: string, updates: Partial<Source>): Promise<Source> {
+    if (isTauri()) {
+      return invokeCmd<Source>('update_source', {
+        id,
+        title: updates.title,
+        content: updates.content,
+      });
+    }
     await delay(400);
     const source = db.sources.find((s) => s.id === id);
     if (!source) throw new Error('We could not find that source.');
@@ -153,6 +167,7 @@ export const sourceService = {
   },
 
   async delete(id: string): Promise<void> {
+    if (isTauri()) return invokeCmd('delete_source', { id });
     await delay(400);
     const source = db.sources.find((s) => s.id === id);
     db.sources = db.sources.filter((s) => s.id !== id);

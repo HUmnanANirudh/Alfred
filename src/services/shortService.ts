@@ -2,6 +2,7 @@ import type { CreateShortConfig, Job, Short, VideoPreset } from '../types';
 import { generateId } from '../utils/id';
 import { delay, now } from '../utils/mock';
 import { runJob, type JobProgressHandler } from './jobRunner';
+import { invokeCmd, isTauri, withJobProgress } from './ipc';
 import { db } from './memory';
 
 const HOOKS = [
@@ -14,22 +15,28 @@ const HOOKS = [
 
 export const shortService = {
   async list(projectId: string): Promise<Short[]> {
+    if (isTauri()) return invokeCmd<Short[]>('list_shorts', { projectId });
     await delay(400);
     return db.shorts.filter((s) => s.projectId === projectId).map((s) => ({ ...s }));
   },
 
   async get(id: string): Promise<Short | null> {
+    if (isTauri()) return invokeCmd<Short | null>('get_short', { id });
     await delay(250);
     const short = db.shorts.find((s) => s.id === id);
     return short ? { ...short } : null;
   },
 
   async getPresets(): Promise<VideoPreset[]> {
+    if (isTauri()) return invokeCmd<VideoPreset[]>('get_presets');
     await delay(200);
     return db.presets.map((p) => ({ ...p }));
   },
 
   async create(config: CreateShortConfig, onProgress?: JobProgressHandler): Promise<Job> {
+    if (isTauri()) {
+      return withJobProgress(() => invokeCmd<Job>('create_shorts', { config }), onProgress);
+    }
     const job = await runJob(
       'render_short',
       [
@@ -69,6 +76,9 @@ export const shortService = {
   },
 
   async regenerate(id: string, onProgress?: JobProgressHandler): Promise<Job> {
+    if (isTauri()) {
+      return withJobProgress(() => invokeCmd<Job>('regenerate_short', { id }), onProgress);
+    }
     const existing = db.shorts.find((s) => s.id === id);
     if (!existing) throw new Error('We could not find that short.');
     existing.status = 'running';
@@ -88,6 +98,7 @@ export const shortService = {
   },
 
   async delete(id: string): Promise<void> {
+    if (isTauri()) return invokeCmd('delete_short', { id });
     await delay(350);
     db.shorts = db.shorts.filter((s) => s.id !== id);
   },

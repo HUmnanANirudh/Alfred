@@ -1,16 +1,19 @@
 import type { Job, Transcript } from '../types';
 import { delay } from '../utils/mock';
 import { runJob, type JobProgressHandler } from './jobRunner';
+import { invokeCmd, isTauri, withJobProgress } from './ipc';
 import { db, makeMockTranscript } from './memory';
 
 export const transcriptService = {
   async get(videoId: string): Promise<Transcript | null> {
+    if (isTauri()) return invokeCmd<Transcript | null>('get_transcript', { videoId });
     await delay(300);
     const transcript = db.transcripts.find((t) => t.videoId === videoId);
     return transcript ? { ...transcript, segments: [...transcript.segments] } : null;
   },
 
   async list(projectId: string): Promise<Transcript[]> {
+    if (isTauri()) return invokeCmd<Transcript[]>('list_transcripts', { projectId });
     await delay(400);
     return db.transcripts
       .filter((t) => t.projectId === projectId)
@@ -18,6 +21,9 @@ export const transcriptService = {
   },
 
   async generate(videoId: string, onProgress?: JobProgressHandler): Promise<Job> {
+    if (isTauri()) {
+      return withJobProgress(() => invokeCmd<Job>('generate_transcript', { videoId }), onProgress);
+    }
     const video = db.videos.find((v) => v.id === videoId);
     const job = await runJob(
       'generate_transcript',

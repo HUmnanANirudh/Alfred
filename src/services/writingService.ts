@@ -6,6 +6,7 @@ import type {
 } from '../types';
 import { generateId } from '../utils/id';
 import { delay, now } from '../utils/mock';
+import { invokeCmd, isTauri } from './ipc';
 import { db, MOCK_ARTICLE } from './memory';
 
 function save(output: WritingOutput, posts?: SocialPost[]): WritingOutput {
@@ -44,22 +45,26 @@ That is the workspace I want: calm, desktop-native, and quiet about the cloud.`;
 
 export const writingService = {
   async list(projectId: string): Promise<WritingOutput[]> {
+    if (isTauri()) return invokeCmd<WritingOutput[]>('list_writing', { projectId });
     await delay(400);
     return db.writing.filter((w) => w.projectId === projectId).map((w) => ({ ...w }));
   },
 
   async get(id: string): Promise<WritingOutput | null> {
+    if (isTauri()) return invokeCmd<WritingOutput | null>('get_writing', { id });
     await delay(250);
     const item = db.writing.find((w) => w.id === id);
     return item ? { ...item } : null;
   },
 
   async listPosts(outputId: string): Promise<SocialPost[]> {
+    if (isTauri()) return invokeCmd<SocialPost[]>('list_posts', { outputId });
     await delay(150);
     return db.socialPosts.filter((p) => p.outputId === outputId).map((p) => ({ ...p }));
   },
 
   async generateArticle(config: GenerateArticleConfig): Promise<WritingOutput> {
+    if (isTauri()) return invokeCmd<WritingOutput>('generate_article', { config });
     await delay(2000);
     const title = config.title?.trim() || config.topic.trim() || 'Draft from project sources';
     return save({
@@ -77,6 +82,7 @@ export const writingService = {
   },
 
   async generateXPost(config: GenerateSocialConfig): Promise<WritingOutput> {
+    if (isTauri()) return invokeCmd<WritingOutput>('generate_x_post', { config });
     await delay(1500);
     const content = X_POSTS[0] ?? '';
     const output = save({
@@ -100,6 +106,7 @@ export const writingService = {
   },
 
   async generateThread(config: GenerateSocialConfig): Promise<WritingOutput> {
+    if (isTauri()) return invokeCmd<WritingOutput>('generate_thread', { config });
     await delay(2000);
     const posts = THREAD.slice(0, config.postCount ?? THREAD.length);
     const output = save({
@@ -125,6 +132,7 @@ export const writingService = {
   },
 
   async generateLinkedIn(config: GenerateSocialConfig): Promise<WritingOutput> {
+    if (isTauri()) return invokeCmd<WritingOutput>('generate_linkedin', { config });
     await delay(1500);
     return save({
       id: generateId('wrt'),
@@ -141,6 +149,7 @@ export const writingService = {
   },
 
   async update(id: string, content: string): Promise<WritingOutput> {
+    if (isTauri()) return invokeCmd<WritingOutput>('update_writing', { id, content });
     await delay(400);
     const item = db.writing.find((w) => w.id === id);
     if (!item) throw new Error('We could not find that draft.');
@@ -149,6 +158,7 @@ export const writingService = {
   },
 
   async updatePost(id: string, content: string): Promise<SocialPost> {
+    if (isTauri()) return invokeCmd<SocialPost>('update_post', { id, content });
     await delay(250);
     const post = db.socialPosts.find((p) => p.id === id);
     if (!post) throw new Error('We could not find that post.');
@@ -165,6 +175,7 @@ export const writingService = {
   },
 
   async delete(id: string): Promise<void> {
+    if (isTauri()) return invokeCmd('delete_writing', { id });
     await delay(350);
     db.writing = db.writing.filter((w) => w.id !== id);
     db.socialPosts = db.socialPosts.filter((p) => p.outputId !== id);

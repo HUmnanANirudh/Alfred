@@ -437,6 +437,13 @@ export type StorageUsage = {
   exports: number;   // bytes
 };
 
+export type EngineHealth = {
+  llama: boolean;
+  audio: boolean;
+  ffmpeg: boolean;
+  ytdlp: boolean;
+};
+
 // ============================================================
 // 5. Service Config Types (from 06_SERVICES_LAYER.md)
 // ============================================================

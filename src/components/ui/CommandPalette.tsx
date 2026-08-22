@@ -31,6 +31,7 @@ export function CommandPalette() {
     const items: Command[] = [
       { id: 'new-project', label: 'Commission a Project', hint: '⌘N', run: () => { setOpen(false); setCreate(true); } },
       { id: 'voices', label: 'Open Voices', run: go(activeId ? `/projects/${activeId}/voices` : '/voices') },
+      { id: 'models', label: 'Open Models', run: go(activeId ? `/projects/${activeId}/models` : '/models') },
     ];
     if (activeId) {
       const base = `/projects/${activeId}`;

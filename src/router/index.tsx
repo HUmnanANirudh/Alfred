@@ -13,6 +13,8 @@ import { VoicesRedirect } from '../pages/VoicesRedirect';
 import { WritingArticlePage } from '../pages/WritingArticlePage';
 import { WritingLinkedInPage } from '../pages/WritingLinkedInPage';
 import { WritingXPage } from '../pages/WritingXPage';
+import { ModelsPage } from '../pages/ModelsPage';
+import { ModelsRedirect } from '../pages/ModelsRedirect';
 import { RouteErrorPage } from '../pages/RouteErrorPage';
 
 export const router = createBrowserRouter([
@@ -25,6 +27,7 @@ export const router = createBrowserRouter([
         element: <GlobalLayout />,
         children: [
           { path: '/voices', element: <VoicesRedirect /> },
+          { path: '/models', element: <ModelsRedirect /> },
         ],
       },
       {
@@ -39,13 +42,14 @@ export const router = createBrowserRouter([
           { path: 'audio', element: <AudioPage /> },
           { path: 'audio/:audId', element: <AudioDraftPage /> },
           { path: 'voices', element: <VoicesPage /> },
+          { path: 'models', element: <ModelsPage /> },
           { path: 'writing', element: <Navigate to="article" replace /> },
           { path: 'writing/article', element: <WritingArticlePage /> },
           { path: 'writing/x', element: <WritingXPage /> },
           { path: 'writing/linkedin', element: <WritingLinkedInPage /> },
         ],
       },
-      { path: '/settings', element: <Navigate to="/" replace /> },
+      { path: '/settings', element: <Navigate to="/models" replace /> },
     ],
   },
 ]);

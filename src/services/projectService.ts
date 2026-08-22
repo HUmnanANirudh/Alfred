@@ -1,15 +1,18 @@
 import type { Project, ProjectStats } from '../types';
 import { generateId } from '../utils/id';
 import { delay, now } from '../utils/mock';
+import { invokeCmd, isTauri } from './ipc';
 import { computeStats, db, seedProjectLibrary } from './memory';
 
 export const projectService = {
   async list(): Promise<Project[]> {
+    if (isTauri()) return invokeCmd<Project[]>('list_projects');
     await delay(400);
     return db.projects.map((p) => ({ ...p, stats: computeStats(p.id) }));
   },
 
   async get(id: string): Promise<Project | null> {
+    if (isTauri()) return invokeCmd<Project | null>('get_project', { id });
     await delay(250);
     const project = db.projects.find((p) => p.id === id);
     if (!project) return null;
@@ -17,6 +20,7 @@ export const projectService = {
   },
 
   async create(name: string, description?: string): Promise<Project> {
+    if (isTauri()) return invokeCmd<Project>('create_project', { name, description });
     await delay(600);
     const stamp = now();
     const project: Project = {
@@ -43,6 +47,13 @@ export const projectService = {
     id: string,
     updates: Partial<Pick<Project, 'name' | 'description'>>,
   ): Promise<Project> {
+    if (isTauri()) {
+      return invokeCmd<Project>('update_project', {
+        id,
+        name: updates.name,
+        description: updates.description,
+      });
+    }
     await delay(400);
     const project = db.projects.find((p) => p.id === id);
     if (!project) throw new Error('We could not find that project.');
@@ -51,6 +62,7 @@ export const projectService = {
   },
 
   async delete(id: string): Promise<void> {
+    if (isTauri()) return invokeCmd('delete_project', { id });
     await delay(400);
     db.projects = db.projects.filter((p) => p.id !== id);
     db.sources = db.sources.filter((s) => s.projectId !== id);
@@ -62,6 +74,7 @@ export const projectService = {
   },
 
   async getStats(id: string): Promise<ProjectStats> {
+    if (isTauri()) return invokeCmd<ProjectStats>('get_project_stats', { id });
     await delay(300);
     return computeStats(id);
   },
