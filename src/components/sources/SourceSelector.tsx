@@ -12,9 +12,10 @@ interface Props {
   selected: string[];
   onChange: (ids: string[]) => void;
   filterTypes?: SourceType[];
+  emptyAction?: { label: string; onClick: () => void };
 }
 
-export function SourceSelector({ selected, onChange, filterTypes }: Props) {
+export function SourceSelector({ selected, onChange, filterTypes, emptyAction }: Props) {
   const sources = useWorkspaceStore((s) => s.sources);
   const [query, setQuery] = useState('');
 
@@ -34,8 +35,21 @@ export function SourceSelector({ selected, onChange, filterTypes }: Props) {
     else onChange([...selected, id]);
   }
 
-  if (sources.length === 0) {
-    return <p className={styles.empty}>No sources in this project yet. Add one from Sources.</p>;
+  if (items.length === 0 && !query) {
+    return (
+      <div className={styles.emptyBox}>
+        <p className={styles.empty}>
+          {filterTypes?.includes('article')
+            ? 'Add an article URL or paste content.'
+            : 'Add a YouTube URL or a video from this device.'}
+        </p>
+        {emptyAction && (
+          <Button variant="secondary" size="sm" onClick={emptyAction.onClick}>
+            {emptyAction.label}
+          </Button>
+        )}
+      </div>
+    );
   }
 
   return (

@@ -9,21 +9,29 @@ const FAIL_REASONS: Array<Extract<FetchArticleResult, { success: false }>['reaso
   'network_error',
 ];
 
-function persistVideoFromYoutube(source: Source): void {
-  const meta = source.metadata?.type === 'youtube' ? source.metadata : undefined;
+function persistVideoFromSource(source: Source): Video {
+  const yt = source.metadata?.type === 'youtube' ? source.metadata : undefined;
+  const local = source.metadata?.type === 'video' ? source.metadata : undefined;
   const video: Video = {
     id: generateId('vid'),
     projectId: source.projectId,
     sourceId: source.id,
     title: source.title,
-    duration: meta?.duration,
+    duration: yt?.duration ?? local?.duration,
     url: source.url,
-    thumbnailPath: meta?.thumbnail,
+    thumbnailPath: yt?.thumbnail,
+    filePath: local?.filePath,
     hasTranscript: true,
     createdAt: now(),
   };
+  const transcript = makeMockTranscript(source.projectId, video.id);
+  const body = transcript.segments.map((s) => s.text).join('\n\n');
+  source.content = body;
+  source.excerpt = excerpt(body);
+  source.wordCount = wordCount(body);
   db.videos.push(video);
-  db.transcripts.push(makeMockTranscript(source.projectId, video.id));
+  db.transcripts.push(transcript);
+  return video;
 }
 
 export const sourceService = {
@@ -77,9 +85,9 @@ export const sourceService = {
       type: 'youtube',
       title,
       url,
-      excerpt: 'A talk on keeping research, transcripts, and drafts on device.',
-      wordCount: 420,
-      content: MOCK_ARTICLE,
+      excerpt: '',
+      wordCount: 0,
+      content: '',
       metadata: {
         type: 'youtube',
         videoId,
@@ -90,7 +98,7 @@ export const sourceService = {
       createdAt: now(),
     };
     db.sources.push(source);
-    persistVideoFromYoutube(source);
+    persistVideoFromSource(source);
     return { success: true, source: { ...source } };
   },
 
@@ -121,20 +129,8 @@ export const sourceService = {
       wordCount: source.wordCount ?? (source.content ? wordCount(source.content) : undefined),
     };
     db.sources.push(created);
-    if (created.type === 'youtube') persistVideoFromYoutube(created);
-    if (created.type === 'video') {
-      const video: Video = {
-        id: generateId('vid'),
-        projectId: created.projectId,
-        sourceId: created.id,
-        title: created.title,
-        duration: created.metadata?.type === 'video' ? created.metadata.duration : 180,
-        filePath: created.metadata?.type === 'video' ? created.metadata.filePath : undefined,
-        hasTranscript: true,
-        createdAt: now(),
-      };
-      db.videos.push(video);
-      db.transcripts.push(makeMockTranscript(created.projectId, video.id));
+    if (created.type === 'youtube' || created.type === 'video') {
+      persistVideoFromSource(created);
     }
     return { ...created };
   },

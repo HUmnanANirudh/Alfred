@@ -1,5 +1,6 @@
-import { useState } from 'react';
-import type { SourceType } from '../../types';
+import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import type { Source, SourceType } from '../../types';
 import { sourceService } from '../../services/sourceService';
 import { videoService } from '../../services/videoService';
 import { transcriptService } from '../../services/transcriptService';
@@ -13,11 +14,14 @@ import { Tabs } from '../ui/Tabs';
 import { Textarea } from '../ui/Textarea';
 import styles from './AddSourceModal.module.css';
 
-const TABS = [
-  { id: 'article', label: 'Article' },
-  { id: 'youtube', label: 'YouTube' },
-  { id: 'video', label: 'Local video' },
-  { id: 'text', label: 'Paste' },
+const VIDEO_TABS = [
+  { id: 'youtube', label: 'YouTube URL' },
+  { id: 'video', label: 'From device' },
+];
+
+const WRITING_TABS = [
+  { id: 'article', label: 'Article URL' },
+  { id: 'text', label: 'Paste content' },
 ];
 
 async function refreshMedia(projectId: string) {
@@ -31,22 +35,35 @@ async function refreshMedia(projectId: string) {
 
 export function AddSourceModal({ projectId }: { projectId: string }) {
   const open = useUiStore((s) => s.addSourceOpen);
+  const intake = useUiStore((s) => s.sourceIntake);
   const setOpen = useUiStore((s) => s.setAddSourceOpen);
   const addSource = useWorkspaceStore((s) => s.addSource);
+  const navigate = useNavigate();
 
-  const [tab, setTab] = useState<SourceType>('article');
+  const tabs = intake === 'video' ? VIDEO_TABS : WRITING_TABS;
+  const [tab, setTab] = useState<SourceType>('youtube');
   const [url, setUrl] = useState('');
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
-  const [filePath, setFilePath] = useState('');
+  const [fileName, setFileName] = useState('');
   const [busy, setBusy] = useState(false);
   const [failReason, setFailReason] = useState('');
+
+  useEffect(() => {
+    if (!open) return;
+    setTab(intake === 'video' ? 'youtube' : 'article');
+    setUrl('');
+    setTitle('');
+    setContent('');
+    setFileName('');
+    setFailReason('');
+  }, [open, intake]);
 
   function reset() {
     setUrl('');
     setTitle('');
     setContent('');
-    setFilePath('');
+    setFileName('');
     setFailReason('');
     setBusy(false);
   }
@@ -55,7 +72,6 @@ export function AddSourceModal({ projectId }: { projectId: string }) {
     if (busy) return;
     setOpen(false);
     reset();
-    setTab('article');
   }
 
   async function handleArticle() {
@@ -66,10 +82,10 @@ export function AddSourceModal({ projectId }: { projectId: string }) {
       if (!result.success) {
         setFailReason(
           result.reason === 'paywall'
-            ? 'This article looks gated. Paste the content manually instead.'
-            : 'We couldn\'t read this article. You can paste it manually instead.',
+            ? 'This article looks gated. Paste the content instead.'
+            : 'We couldn\'t read this article. Paste the content instead.',
         );
-        toast.error('We couldn\'t add this source. Try pasting the content manually.');
+        toast.error('We couldn\'t add this source. Try pasting the content.');
         return;
       }
       const source = await sourceService.add({
@@ -93,6 +109,18 @@ export function AddSourceModal({ projectId }: { projectId: string }) {
     }
   }
 
+  async function finishVideo(source: Source) {
+    addSource(source);
+    await refreshMedia(projectId);
+    const video = useWorkspaceStore.getState().videos.find((v) => v.sourceId === source.id);
+    toast.success('Video added. Transcript is on the source — you can generate shorts now.');
+    setOpen(false);
+    reset();
+    if (video) {
+      navigate(`/projects/${projectId}/video/shorts?video=${video.id}`);
+    }
+  }
+
   async function handleYoutube() {
     setBusy(true);
     setFailReason('');
@@ -102,16 +130,12 @@ export function AddSourceModal({ projectId }: { projectId: string }) {
         setFailReason(
           result.reason === 'invalid_url'
             ? 'That doesn\'t look like a YouTube URL.'
-            : 'We couldn\'t read this video. Check the URL and try again.',
+            : 'We couldn\'t read this video. Try a local file instead.',
         );
-        toast.error('We couldn\'t add this source.');
+        toast.error('We couldn\'t add this video.');
         return;
       }
-      addSource(result.source);
-      await refreshMedia(projectId);
-      toast.success('Source added');
-      setOpen(false);
-      reset();
+      await finishVideo(result.source);
     } catch {
       setFailReason('Something went wrong. Try again.');
     } finally {
@@ -139,8 +163,8 @@ export function AddSourceModal({ projectId }: { projectId: string }) {
   }
 
   async function handleLocal() {
-    if (!filePath.trim()) {
-      setFailReason('Enter a file path for this mock import.');
+    if (!fileName.trim()) {
+      setFailReason('Choose a video from this device.');
       return;
     }
     setBusy(true);
@@ -148,14 +172,10 @@ export function AddSourceModal({ projectId }: { projectId: string }) {
       const source = await sourceService.add({
         projectId,
         type: 'video',
-        title: filePath.split(/[/\\]/).pop() ?? 'Local video',
-        metadata: { type: 'video', filePath: filePath.trim(), duration: 198 },
+        title: fileName,
+        metadata: { type: 'video', filePath: fileName, duration: 198 },
       });
-      addSource(source);
-      await refreshMedia(projectId);
-      toast.success('Source added');
-      setOpen(false);
-      reset();
+      await finishVideo(source);
     } catch {
       setFailReason('Something went wrong. Try again.');
     } finally {
@@ -170,23 +190,27 @@ export function AddSourceModal({ projectId }: { projectId: string }) {
     return handlePaste();
   }
 
+  const primaryLabel =
+    tab === 'article' ? 'Fetch article'
+      : tab === 'youtube' ? 'Add video'
+        : tab === 'video' ? 'Add video'
+          : 'Save';
+
   return (
     <Modal
       isOpen={open}
       onClose={close}
-      title="Add Source"
+      title={intake === 'video' ? 'Add video' : 'Add source'}
       size="md"
       footer={
         <>
           <Button variant="ghost" onClick={close} disabled={busy}>Cancel</Button>
-          <Button variant="primary" onClick={submit} loading={busy}>
-            {tab === 'article' ? 'Fetch article' : tab === 'youtube' ? 'Add video' : 'Save source'}
-          </Button>
+          <Button variant="primary" onClick={submit} loading={busy}>{primaryLabel}</Button>
         </>
       }
     >
       <div className={styles.body}>
-        <Tabs tabs={TABS} value={tab} onChange={(id) => { setTab(id as SourceType); setFailReason(''); }} />
+        <Tabs tabs={tabs} value={tab} onChange={(id) => { setTab(id as SourceType); setFailReason(''); }} />
         {tab === 'article' && (
           <Input
             label="Article URL"
@@ -205,13 +229,15 @@ export function AddSourceModal({ projectId }: { projectId: string }) {
           />
         )}
         {tab === 'video' && (
-          <Input
-            label="File path"
-            placeholder="/Users/you/Movies/talk.mp4"
-            value={filePath}
-            onChange={(e) => setFilePath(e.target.value)}
-            hint="Phase 1 mocks a local file. No picker yet."
-          />
+          <label className={styles.filePick}>
+            <span>Video file</span>
+            <input
+              type="file"
+              accept="video/*"
+              onChange={(e) => setFileName(e.target.files?.[0]?.name ?? '')}
+            />
+            <span className={styles.fileName}>{fileName || 'Choose a file from this device'}</span>
+          </label>
         )}
         {tab === 'text' && (
           <>
@@ -224,7 +250,12 @@ export function AddSourceModal({ projectId }: { projectId: string }) {
             <p>{failReason}</p>
             {tab === 'article' && (
               <Button variant="link" onClick={() => { setTab('text'); setFailReason(''); }}>
-                Paste it manually
+                Paste it instead
+              </Button>
+            )}
+            {tab === 'youtube' && (
+              <Button variant="link" onClick={() => { setTab('video'); setFailReason(''); }}>
+                Choose a local file
               </Button>
             )}
           </div>

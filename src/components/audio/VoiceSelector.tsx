@@ -22,8 +22,10 @@ export function VoiceSelector({
 
   useEffect(() => {
     if (!isOpen) return;
-    voiceService.list().then(setVoices);
-    setSelected(value);
+    voiceService.list().then((list) => {
+      setVoices(list);
+      setSelected((current) => current ?? value ?? list[0]?.id);
+    });
   }, [isOpen, value]);
 
   return (

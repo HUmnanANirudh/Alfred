@@ -11,6 +11,7 @@ import { Select } from '../components/ui/Select';
 import { Tabs } from '../components/ui/Tabs';
 import { writingService } from '../services/writingService';
 import { toast } from '../store/toastStore';
+import { useUiStore } from '../store/uiStore';
 import { useWorkspaceStore } from '../store/workspaceStore';
 import type { SocialPost, WritingTone } from '../types';
 import styles from './page.module.css';
@@ -22,6 +23,7 @@ export function WritingXPage() {
   const setPosts = useWorkspaceStore((s) => s.setPosts);
   const addWriting = useWorkspaceStore((s) => s.addWriting);
   const updatePost = useWorkspaceStore((s) => s.updatePost);
+  const setAdd = useUiStore((s) => s.setAddSourceOpen);
   const [tab, setTab] = useState<'post' | 'thread'>('post');
   const [tone, setTone] = useState<WritingTone>('sharp');
   const [sourceIds, setSourceIds] = useState<string[]>([]);
@@ -83,8 +85,14 @@ export function WritingXPage() {
         </Select>
         {id && (
           <div>
-            <p className={styles.muted} style={{ marginBottom: 8 }}>Use project sources</p>
-            <SourceSelector projectId={id} selected={sourceIds} onChange={setSourceIds} />
+            <p className={styles.muted} style={{ marginBottom: 8 }}>Sources — article URL or pasted text</p>
+            <SourceSelector
+              projectId={id}
+              selected={sourceIds}
+              onChange={setSourceIds}
+              filterTypes={['article', 'text']}
+              emptyAction={{ label: 'Add URL or paste', onClick: () => setAdd(true, 'writing') }}
+            />
           </div>
         )}
         <Button variant="primary" loading={busy} onClick={generate}>

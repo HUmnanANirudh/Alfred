@@ -5,7 +5,6 @@ import { PageHeader } from '../components/layout/PageHeader';
 import { AudioCard } from '../components/audio/AudioCard';
 import { VoiceSelector } from '../components/audio/VoiceSelector';
 import { ProcessingPanel } from '../components/video/ProcessingPanel';
-import { SourceSelector } from '../components/sources/SourceSelector';
 import { Button } from '../components/ui/Button';
 import { EmptyState } from '../components/ui/EmptyState';
 import { Textarea } from '../components/ui/Textarea';
@@ -21,7 +20,6 @@ export function AudioPage() {
   const setAudio = useWorkspaceStore((s) => s.setAudio);
   const setActiveJob = useWorkspaceStore((s) => s.setActiveJob);
   const [script, setScript] = useState('');
-  const [sourceIds, setSourceIds] = useState<string[]>([]);
   const [voiceOpen, setVoiceOpen] = useState(false);
   const [job, setJob] = useState<Job | null>(null);
   const [busy, setBusy] = useState(false);
@@ -32,7 +30,7 @@ export function AudioPage() {
     setBusy(true);
     try {
       await audioService.generate(
-        { projectId: id, voiceId, script, sourceIds },
+        { projectId: id, voiceId, script },
         (next) => {
           setJob(next);
           setActiveJob(next);
@@ -43,7 +41,7 @@ export function AudioPage() {
       toast.success('Audio ready');
       setJob(null);
     } catch {
-      toast.error('We couldn\'t generate this audio. Try again.');
+      toast.error('Audio generation couldn\'t be completed.');
     } finally {
       setBusy(false);
     }
@@ -53,7 +51,7 @@ export function AudioPage() {
     <div className={styles.page}>
       <PageHeader
         title="Audio"
-        description="Write a script, pick a voice, keep the file on this device."
+        description="Write a script, then choose a voice. Speech stays on this device."
       />
 
       <div className={styles.stack}>
@@ -65,12 +63,6 @@ export function AudioPage() {
           onChange={(e) => setScript(e.target.value)}
           hint={`${script.length.toLocaleString('en-US')} characters`}
         />
-        {id && (
-          <div>
-            <p className={styles.muted} style={{ marginBottom: 8 }}>Use project sources</p>
-            <SourceSelector projectId={id} selected={sourceIds} onChange={setSourceIds} />
-          </div>
-        )}
         <Button variant="primary" disabled={!script.trim() || busy} onClick={() => setVoiceOpen(true)}>
           Generate Audio
         </Button>

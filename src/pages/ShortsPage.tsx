@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useEffect, useRef, useState } from 'react';
+import { useParams, useSearchParams } from 'react-router-dom';
 import { Clapperboard } from 'lucide-react';
 import { PageHeader } from '../components/layout/PageHeader';
 import { ProcessingPanel } from '../components/video/ProcessingPanel';
@@ -10,6 +10,7 @@ import { EmptyState } from '../components/ui/EmptyState';
 import { Select } from '../components/ui/Select';
 import { shortService } from '../services/shortService';
 import { toast } from '../store/toastStore';
+import { useUiStore } from '../store/uiStore';
 import { useWorkspaceStore } from '../store/workspaceStore';
 import type { Job, VideoPreset } from '../types';
 import styles from './page.module.css';
@@ -18,19 +19,23 @@ type Step = 'source' | 'preset' | 'config' | 'processing' | 'done';
 
 export function ShortsPage() {
   const { id } = useParams<{ id: string }>();
+  const [searchParams] = useSearchParams();
+  const requestedVideo = searchParams.get('video');
   const videos = useWorkspaceStore((s) => s.videos);
   const shorts = useWorkspaceStore((s) => s.shorts);
   const setShorts = useWorkspaceStore((s) => s.setShorts);
   const setActiveJob = useWorkspaceStore((s) => s.setActiveJob);
 
-  const [step, setStep] = useState<Step>(shorts.length ? 'done' : 'source');
-  const [videoId, setVideoId] = useState(videos[0]?.id ?? '');
+  const [step, setStep] = useState<Step>('source');
+  const [videoId, setVideoId] = useState(requestedVideo ?? videos[0]?.id ?? '');
   const [presets, setPresets] = useState<VideoPreset[]>([]);
   const [presetId, setPresetId] = useState('');
   const [captions, setCaptions] = useState(true);
   const [captionStyle, setCaptionStyle] = useState('clean');
   const [count, setCount] = useState(3);
   const [job, setJob] = useState<Job | null>(null);
+  const landedOnResults = useRef(false);
+  const appliedQuery = useRef(false);
 
   useEffect(() => {
     shortService.getPresets().then((list) => {
@@ -40,8 +45,18 @@ export function ShortsPage() {
   }, []);
 
   useEffect(() => {
+    if (requestedVideo && !appliedQuery.current && videos.some((v) => v.id === requestedVideo)) {
+      appliedQuery.current = true;
+      setVideoId(requestedVideo);
+      setStep('preset');
+      return;
+    }
     if (!videoId && videos[0]) setVideoId(videos[0].id);
-  }, [videoId, videos]);
+    if (!requestedVideo && shorts.length > 0 && !landedOnResults.current) {
+      landedOnResults.current = true;
+      setStep('done');
+    }
+  }, [requestedVideo, shorts.length, videoId, videos]);
 
   async function create() {
     if (!id || !videoId || !presetId) return;
@@ -73,12 +88,14 @@ export function ShortsPage() {
     }
   }
 
+  const chosen = videos.find((v) => v.id === videoId);
+
   return (
     <div className={styles.page}>
       <PageHeader
         title="Shorts"
-        description="Pick a video, a layout, then let Alfred find the moments."
-        actions={step === 'done' ? <Button variant="primary" onClick={() => setStep('source')}>Create shorts</Button> : undefined}
+        description={chosen ? `Using “${chosen.title}” — transcript is already on the source.` : 'Add a video, then cut shorts from its transcript.'}
+        actions={step === 'done' ? <Button variant="primary" onClick={() => setStep(videos.length ? 'preset' : 'source')}>Create shorts</Button> : undefined}
       />
 
       {step === 'source' && (
@@ -87,11 +104,13 @@ export function ShortsPage() {
             <EmptyState
               icon={<Clapperboard size={40} strokeWidth={1.25} />}
               title="No shorts generated yet"
-              description="Add a video source first, then create your first short."
+              description="Add a YouTube URL or a video from this device. The transcript is stored on that source, then you can generate shorts."
+              actionLabel="Add video"
+              onAction={() => useUiStore.getState().setAddSourceOpen(true, 'video')}
             />
           ) : (
             <div className={styles.stack}>
-              <Select label="Video source" value={videoId} onChange={(e) => setVideoId(e.target.value)}>
+              <Select label="Video" value={videoId} onChange={(e) => setVideoId(e.target.value)}>
                 {videos.map((v) => <option key={v.id} value={v.id}>{v.title}</option>)}
               </Select>
               <Button variant="primary" onClick={() => setStep('preset')} disabled={!videoId}>Continue</Button>
@@ -144,7 +163,7 @@ export function ShortsPage() {
             title="No shorts generated yet"
             description="Create your first short."
             actionLabel="Create shorts"
-            onAction={() => setStep('source')}
+            onAction={() => setStep(videos.length ? 'preset' : 'source')}
           />
         ) : (
           <div className={styles.stack}>

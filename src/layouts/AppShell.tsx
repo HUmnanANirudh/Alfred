@@ -25,7 +25,8 @@ export function AppShell() {
       }
       if (mod && e.shiftKey && e.key.toLowerCase() === 'a') {
         e.preventDefault();
-        setAddSource(true);
+        const writing = window.location.pathname.includes('/writing');
+        setAddSource(true, writing ? 'writing' : 'video');
       }
     };
     window.addEventListener('keydown', onKey);

@@ -7,8 +7,6 @@ import { EmptyWorkspace } from '../pages/EmptyWorkspace';
 import { ShortsPage } from '../pages/ShortsPage';
 import { SourceDetailPage } from '../pages/SourceDetailPage';
 import { SourcesPage } from '../pages/SourcesPage';
-import { TranscriptDetailPage } from '../pages/TranscriptDetailPage';
-import { TranscriptsPage } from '../pages/TranscriptsPage';
 import { VideoPage } from '../pages/VideoPage';
 import { VoicesPage } from '../pages/VoicesPage';
 import { WritingArticlePage } from '../pages/WritingArticlePage';
@@ -37,8 +35,6 @@ export const router = createBrowserRouter([
           { path: 'sources/:srcId', element: <SourceDetailPage /> },
           { path: 'video', element: <VideoPage /> },
           { path: 'video/shorts', element: <ShortsPage /> },
-          { path: 'video/transcripts', element: <TranscriptsPage /> },
-          { path: 'video/transcripts/:trsId', element: <TranscriptDetailPage /> },
           { path: 'audio', element: <AudioPage /> },
           { path: 'writing', element: <Navigate to="article" replace /> },
           { path: 'writing/article', element: <WritingArticlePage /> },
