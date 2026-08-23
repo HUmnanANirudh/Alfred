@@ -66,13 +66,13 @@ export function AudioPage() {
       setAudio(list);
       setActiveJob(null);
       setJob(null);
+      setBusy(false);
       toast.success('Draft ready');
       if (list[0]) navigate(`/projects/${id}/audio/${list[0].id}`);
     } catch (e: any) {
       toast.error(e?.message || e?.toString() || "Audio generation couldn't be completed.");
       setJob(null);
       setActiveJob(null);
-    } finally {
       setBusy(false);
     }
   }

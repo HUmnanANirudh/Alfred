@@ -5,6 +5,7 @@ use std::sync::OnceLock;
 
 static SERVER_PORT: OnceLock<u16> = OnceLock::new();
 
+#[allow(dead_code)]
 pub fn get_port() -> Option<u16> {
     SERVER_PORT.get().copied()
 }

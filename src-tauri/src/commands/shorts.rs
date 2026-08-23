@@ -373,7 +373,7 @@ Output format (strictly valid JSON with this exact schema):
     }
 
     let mut last_end = 0.0;
-    let mut candidates: Vec<ClipCandidate> = clips
+    let candidates: Vec<ClipCandidate> = clips
         .into_iter()
         .filter_map(|c| {
             let start = c.get("start").and_then(|v| v.as_f64()).unwrap_or(last_end);

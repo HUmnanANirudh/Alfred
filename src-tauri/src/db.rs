@@ -1,4 +1,4 @@
-use crate::ids::{id, now};
+use crate::ids::id;
 use crate::models::*;
 use crate::schema::MIGRATIONS;
 use turso::{Builder, Connection, Value};
@@ -21,15 +21,6 @@ pub async fn migrate(db: &turso::Database) -> Result<(), String> {
 }
 
 async fn seed_voices(conn: &Connection) -> Result<(), String> {
-    let mut rows = conn
-        .query("SELECT COUNT(*) FROM voices", ())
-        .await
-        .map_err(|e| e.to_string())?;
-    let count = if let Some(row) = rows.next().await.map_err(|e| e.to_string())? {
-        as_i64(&row.get_value(0).map_err(|e| e.to_string())?)
-    } else {
-        0
-    };
     // Remove legacy default voices
     conn.execute("DELETE FROM voices WHERE is_cloned = 0 OR id LIKE 'vce_default_%' OR id LIKE 'vce_%'", ())
         .await

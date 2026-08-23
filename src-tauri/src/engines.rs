@@ -691,7 +691,7 @@ pub async fn ffprobe_duration(path: &str) -> Option<f64> {
     String::from_utf8_lossy(&output.stdout).trim().parse().ok()
 }
 
-pub async fn install_audio_model(model_id: &str, models_dir: &Path) -> Result<(), String> {
+pub async fn install_audio_model(_model_id: &str, _models_dir: &Path) -> Result<(), String> {
     // audiocpp_server auto-downloads models lazily when they are requested!
     // We just return Ok to mark it as installed in the SQLite UI.
     Ok(())
