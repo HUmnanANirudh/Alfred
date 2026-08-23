@@ -127,22 +127,11 @@ pub async fn generate_article(
         &db::source_context(&conn, &config.project_id, &config.source_ids).await?,
         6000,
     );
-    let fallback_title = config
-        .title
-        .clone()
-        .filter(|t| !t.trim().is_empty())
-        .unwrap_or_else(|| {
-            if config.topic.trim().is_empty() {
-                "Draft from project sources".into()
-            } else {
-                config.topic.clone()
-            }
-        });
+    let fallback_title = "Draft from project sources".to_string();
     let prompt = format!(
-        "Write a markdown article. Start with a single # heading. Output markdown only — no JSON, no preamble, no closing remarks about being an AI.\nTone: {}\nLength: {}\nTopic: {}\n\nUse only these sources:\n{context}",
+        "Write a markdown article. Start with a single # heading. Output markdown only — no JSON, no preamble, no closing remarks about being an AI.\nTone: {}\nLength: {}\n\nUse only these sources:\n{context}",
         config.tone.as_deref().unwrap_or("professional"),
-        config.length.as_deref().unwrap_or("medium"),
-        config.topic
+        config.length.as_deref().unwrap_or("medium")
     );
     let content = llama_stream_required(&app, &prompt, 900).await?;
     let title = title_from_markdown(&content, &fallback_title);

@@ -487,8 +487,6 @@ export type GeneratePodcastConfig = {
 
 export type GenerateArticleConfig = {
   projectId: string;
-  title?: string;
-  topic: string;
   sourceIds: string[];
   tone?: WritingTone;
   length?: "short" | "medium" | "long";

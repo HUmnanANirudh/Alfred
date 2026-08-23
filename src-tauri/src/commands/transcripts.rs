@@ -110,7 +110,8 @@ pub async fn generate_transcript(
 
     let text = asr.text.clone();
     let mut segments = asr.segments;
-    if segments.is_empty() {
+    if segments.len() <= 1 {
+        segments.clear();
         if text.trim().is_empty() {
             jobs::finish(
                 &mut job,
@@ -123,13 +124,38 @@ pub async fn generate_transcript(
         let end = engines::ffprobe_duration(&wav.to_string_lossy())
             .await
             .unwrap_or(0.0);
-        segments = vec![json!({
-            "id": db::new_id("seg"),
-            "start": 0.0,
-            "end": end,
-            "text": text.trim(),
-            "index": 0
-        })];
+            
+        let total_chars = text.len() as f64;
+        let mut current_start = 0.0;
+        let mut chunk = String::new();
+        let parts: Vec<&str> = text.split_inclusive(|c| c == '.' || c == '?' || c == '!' || c == '\n').collect();
+        
+        for (i, part) in parts.iter().enumerate() {
+            chunk.push_str(part);
+            if chunk.len() > 150 || i == parts.len() - 1 {
+                let duration = (chunk.len() as f64 / total_chars) * end;
+                let seg_end = current_start + duration;
+                segments.push(json!({
+                    "id": db::new_id("seg"),
+                    "start": current_start,
+                    "end": seg_end,
+                    "text": chunk.trim(),
+                    "index": segments.len()
+                }));
+                current_start = seg_end;
+                chunk.clear();
+            }
+        }
+        
+        if segments.is_empty() {
+            segments = vec![json!({
+                "id": db::new_id("seg"),
+                "start": 0.0,
+                "end": end,
+                "text": text.trim(),
+                "index": 0
+            })];
+        }
     }
     let stamp = now();
     let tid = db::new_id("trs");

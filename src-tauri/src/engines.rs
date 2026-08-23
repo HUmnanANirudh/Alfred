@@ -93,30 +93,44 @@ pub async fn tooling() -> Tooling {
     }
 }
 
-pub async fn llama_complete(prompt: &str, n_predict: u32) -> Result<String, String> {
+pub async fn llama_complete(prompt: &str, n_predict: u32, is_json: bool) -> Result<String, String> {
     let client = reqwest::Client::new();
     let mut last = String::new();
     for _ in 0..3 {
+        let mut req_body = json!({
+            "messages": [
+                { "role": "system", "content": "You are a specialized JSON data extractor and editor. Follow the user's instructions exactly. Do not copy examples directly." },
+                { "role": "user", "content": prompt }
+            ],
+            "max_tokens": n_predict,
+            "temperature": 0.3,
+        });
+        
+        if is_json {
+            req_body.as_object_mut().unwrap().insert("response_format".to_string(), json!({"type": "json_object"}));
+        }
+
         let res = client
-            .post(format!("{LLAMA}/completion"))
+            .post(format!("{LLAMA}/v1/chat/completions"))
             .timeout(Duration::from_secs(120))
-            .json(&json!({
-                "prompt": prompt,
-                "n_predict": n_predict,
-                "temperature": 0.3,
-                "stop": ["<|eot_id|>", "<|im_end|>"]
-            }))
+            .json(&req_body)
             .send()
             .await
             .map_err(|e| format!("llama.cpp is not reachable on :8765 ({e})"))?;
         let body: Value = res.json().await.map_err(|e| e.to_string())?;
+        
+        // Handle chat completions format
         let content = body
-            .get("content")
+            .get("choices")
+            .and_then(|c| c.as_array())
+            .and_then(|a| a.first())
+            .and_then(|c| c.get("message"))
+            .and_then(|m| m.get("content"))
             .and_then(|v| v.as_str())
-            .or_else(|| body.get("response").and_then(|v| v.as_str()))
             .unwrap_or("")
             .trim()
             .to_string();
+            
         last = content.clone();
         if looks_like_json(&content) || !content.is_empty() {
             return Ok(content);
@@ -131,14 +145,16 @@ pub async fn llama_stream(prompt: &str, n_predict: u32, app: &AppHandle) -> Resu
     let _ = app.emit("llm:start", true);
     let client = reqwest::Client::new();
     let res = client
-        .post(format!("{LLAMA}/completion"))
+        .post(format!("{LLAMA}/v1/chat/completions"))
         .timeout(Duration::from_secs(180))
         .json(&json!({
-            "prompt": prompt,
-            "n_predict": n_predict,
+            "messages": [
+                { "role": "system", "content": "You are a professional copywriter and content editor. Always follow the user's instructions exactly. Output the requested content directly, without preamble, meta-commentary, or closing remarks." },
+                { "role": "user", "content": prompt }
+            ],
+            "max_tokens": n_predict,
             "temperature": 0.3,
             "stream": true,
-            "stop": ["<|eot_id|>", "<|im_end|>"]
         }))
         .send()
         .await
@@ -169,7 +185,16 @@ pub async fn llama_stream(prompt: &str, n_predict: u32, app: &AppHandle) -> Resu
             let Ok(v) = serde_json::from_str::<Value>(json_str) else {
                 continue;
             };
-            let Some(token) = v.get("content").and_then(|c| c.as_str()) else {
+            
+            // Extract from chat/completions format: choices[0].delta.content
+            let token = v.get("choices")
+                .and_then(|c| c.as_array())
+                .and_then(|a| a.first())
+                .and_then(|c| c.get("delta"))
+                .and_then(|d| d.get("content"))
+                .and_then(|c| c.as_str());
+                
+            let Some(token) = token else {
                 continue;
             };
             if token.is_empty() {
@@ -178,10 +203,6 @@ pub async fn llama_stream(prompt: &str, n_predict: u32, app: &AppHandle) -> Resu
             full.push_str(token);
             let _ = app.emit("llm:token", LlmTokenEvent { token: token.to_string() });
         }
-    }
-
-    if full.trim().is_empty() {
-        return Err("LFM2.5 returned an empty stream.".into());
     }
     let _ = app.emit("llm:done", true);
     Ok(full)
@@ -281,9 +302,10 @@ pub async fn audio_task(task: &str, file_path: &str) -> Result<Value, String> {
         .await
         .map_err(|e| format!("audio.cpp is not reachable on :8766 ({e})"))?;
     if !res.status().is_success() {
+        let status = res.status();
+        let error_body = res.text().await.unwrap_or_default();
         return Err(format!(
-            "audio.cpp could not run {task} ({})",
-            res.status()
+            "audio.cpp could not run {task} ({status}): {error_body}"
         ));
     }
     let bytes = res.bytes().await.map_err(|e| e.to_string())?;
@@ -764,16 +786,28 @@ pub async fn ensure_sidecars(
             .filter(|s| !s.is_empty())
             .or_else(|| find_gguf(&data_dir.join("models")));
         if let Some(model) = model {
-            match Command::new("llama-server")
+            let home = std::env::var("HOME").unwrap_or_default();
+            let local_bin = format!("{home}/.local/bin");
+            let local_lib = format!("{home}/.local/lib");
+            // llama-server built by audio.cpp lives at ~/.local/bin; it needs
+            // ggml CPU backend plugins from ~/.local/lib (also ~/.local/bin where
+            // we copy the .so files to satisfy the dynamic backend loader).
+            let server_path = format!("{local_bin}/llama-server");
+            let ld_path = format!("{local_bin}:{local_lib}");
+            let cores = std::thread::available_parallelism().map(|n| n.get()).unwrap_or(4);
+            match Command::new(&server_path)
+                .env("LD_LIBRARY_PATH", &ld_path)
                 .args([
                     "--model",
                     &model,
                     "--port",
                     "8765",
                     "--ctx-size",
-                    "4096",
+                    "8192",
                     "--host",
                     "127.0.0.1",
+                    "--threads",
+                    &cores.to_string(),
                 ])
                 .kill_on_drop(true)
                 .spawn()

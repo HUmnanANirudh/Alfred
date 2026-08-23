@@ -332,7 +332,7 @@ pub async fn generate_podcast(
         let prompt = format!(
             "Write a two-host podcast script from these sources only. Each line starts with A: or B:. Plain text, no markdown.\n\n{context}"
         );
-        engines::llama_complete(&prompt, 700).await?
+        engines::llama_complete(&prompt, 700, false).await?
     };
     jobs::set_step(&mut job, 0, "done");
     jobs::set_step(&mut job, 1, "running");

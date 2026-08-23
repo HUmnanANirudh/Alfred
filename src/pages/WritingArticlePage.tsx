@@ -5,7 +5,6 @@ import { SourceSelector } from '../components/sources/SourceSelector';
 import { ArticleEditor } from '../components/writing/ArticleEditor';
 import { Button } from '../components/ui/Button';
 import { EmptyState } from '../components/ui/EmptyState';
-import { Input } from '../components/ui/Input';
 import { Select } from '../components/ui/Select';
 import { writingService } from '../services/writingService';
 import { toast } from '../store/toastStore';
@@ -22,8 +21,6 @@ export function WritingArticlePage() {
   const addWriting = useWorkspaceStore((s) => s.addWriting);
   const updateWriting = useWorkspaceStore((s) => s.updateWriting);
   const setAdd = useUiStore((s) => s.setAddSourceOpen);
-  const [title, setTitle] = useState('');
-  const [topic, setTopic] = useState('');
   const [tone, setTone] = useState<WritingTone>('professional');
   const [length, setLength] = useState<'short' | 'medium' | 'long'>('medium');
   const [sourceIds, setSourceIds] = useState<string[]>([]);
@@ -42,8 +39,6 @@ export function WritingArticlePage() {
     try {
       const output = await writingService.generateArticle({
         projectId: id,
-        title: title.trim() || undefined,
-        topic: topic.trim() || 'From project sources',
         sourceIds,
         tone,
         length,
@@ -99,13 +94,6 @@ export function WritingArticlePage() {
   return (
     <div className={styles.page}>
       <div className={styles.stack}>
-        <Input label="Title" placeholder="The Future of AI" value={title} onChange={(e) => setTitle(e.target.value)} />
-        <Input
-          label="What should this article be about?"
-          placeholder="Local-first creator workflows"
-          value={topic}
-          onChange={(e) => setTopic(e.target.value)}
-        />
         <Select label="Tone" value={tone} onChange={(e) => setTone(e.target.value as WritingTone)}>
           <option value="professional">Professional</option>
           <option value="casual">Casual</option>

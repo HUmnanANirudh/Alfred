@@ -304,8 +304,6 @@ pub struct TranscriptSegment {
 #[serde(rename_all = "camelCase")]
 pub struct GenerateArticleConfig {
     pub project_id: String,
-    pub title: Option<String>,
-    pub topic: String,
     pub source_ids: Vec<String>,
     pub tone: Option<String>,
     pub length: Option<String>,
