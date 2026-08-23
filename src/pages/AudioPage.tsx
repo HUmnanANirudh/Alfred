@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { Mic } from 'lucide-react';
 import { PageHeader } from '../components/layout/PageHeader';
-import { VoiceSelector } from '../components/audio/VoiceSelector';
 import { SourceSelector } from '../components/sources/SourceSelector';
 import { ProcessingPanel } from '../components/video/ProcessingPanel';
 import { Button } from '../components/ui/Button';
@@ -26,7 +25,6 @@ export function AudioPage() {
   const setAdd = useUiStore((s) => s.setAddSourceOpen);
   const [sourceIds, setSourceIds] = useState<string[]>([]);
   const [manualScript, setManualScript] = useState('');
-  const [voiceOpen, setVoiceOpen] = useState(false);
   const [job, setJob] = useState<Job | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -37,7 +35,8 @@ export function AudioPage() {
       .join('\n\n');
   }
 
-  async function generate(voiceId: string) {
+  async function generate() {
+    const voiceId = 'default';
     if (!id) return;
     const isManual = manualScript.trim().length > 0;
     
@@ -50,7 +49,6 @@ export function AudioPage() {
       toast.error('There is no text to generate from.');
       return;
     }
-    setVoiceOpen(false);
     setBusy(true);
     try {
       const job = await audioService.generate(
@@ -90,7 +88,7 @@ export function AudioPage() {
               <Button
                 variant="primary"
                 disabled={(sourceIds.length === 0 && manualScript.trim().length === 0) || busy}
-                onClick={() => setVoiceOpen(true)}
+                onClick={generate}
               >
                 Generate audio
               </Button>
@@ -154,12 +152,6 @@ export function AudioPage() {
           </tbody>
         </table>
       )}
-
-      <VoiceSelector
-        isOpen={voiceOpen}
-        onClose={() => setVoiceOpen(false)}
-        onConfirm={generate}
-      />
     </div>
   );
 }

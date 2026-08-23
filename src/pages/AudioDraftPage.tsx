@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { PageHeader } from '../components/layout/PageHeader';
-import { VoiceSelector } from '../components/audio/VoiceSelector';
 import { ProcessingPanel } from '../components/video/ProcessingPanel';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
@@ -22,7 +21,6 @@ export function AudioDraftPage() {
 
   const [title, setTitle] = useState(draft?.title ?? '');
   const [script, setScript] = useState(draft?.script ?? '');
-  const [voiceOpen, setVoiceOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [busy, setBusy] = useState(false);
   const [job, setJob] = useState<Job | null>(null);
@@ -46,9 +44,9 @@ export function AudioDraftPage() {
     }
   }
 
-  async function generate(voiceId: string) {
+  async function generate() {
+    const voiceId = 'default';
     if (!id || !audId) return;
-    setVoiceOpen(false);
     setBusy(true);
     try {
       const saved = await audioService.update(audId, { title: title.trim() || undefined, script });
@@ -119,7 +117,7 @@ export function AudioDraftPage() {
               </>
             )}
             <Button variant="secondary" loading={saving} onClick={save}>Save</Button>
-            <Button variant="primary" disabled={busy || !script.trim()} onClick={() => setVoiceOpen(true)}>
+            <Button variant="primary" disabled={busy || !script.trim()} onClick={generate}>
               Generate
             </Button>
           </>
@@ -141,13 +139,6 @@ export function AudioDraftPage() {
           <ProcessingPanel job={job} title="Generating audio" />
         </div>
       )}
-
-      <VoiceSelector
-        isOpen={voiceOpen}
-        onClose={() => setVoiceOpen(false)}
-        value={draft.voiceId}
-        onConfirm={generate}
-      />
     </div>
   );
 }

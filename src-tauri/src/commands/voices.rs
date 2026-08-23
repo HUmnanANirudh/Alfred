@@ -39,9 +39,33 @@ pub async fn create_voice(
     sample_path: Option<String>,
     state: State<'_, AppState>,
 ) -> Result<Job, String> {
-    let sample = sample_path.filter(|p| !p.is_empty()).ok_or(
-        "Pick a voice sample of about 30 seconds, then clone.",
-    )?;
+    let sample_opt = sample_path.filter(|p| !p.is_empty());
+    
+    // If no sample is provided, just create a standard TTS voice instantly.
+    if sample_opt.is_none() {
+        let conn = state.connect()?;
+        let stamp = now();
+        let id = db::new_id("vce");
+        
+        conn.execute(
+            "INSERT INTO voices (id, name, sample_path, engine, is_default, is_cloned, created_at) VALUES (?1, ?2, NULL, 'pocket-tts', 0, 0, ?3)",
+            (
+                id.as_str(),
+                name.as_str(),
+                stamp.as_str(),
+            ),
+        )
+        .await
+        .map_err(|e| e.to_string())?;
+        
+        // Return a dummy completed job so the frontend is happy
+        let mut job = jobs::start("create_voice", None, vec![("Saving voice", None)]);
+        jobs::set_step(&mut job, 0, "done");
+        jobs::finish(&mut job, true, None);
+        return Ok(job);
+    }
+
+    let sample = sample_opt.unwrap();
     if !std::path::Path::new(&sample).exists() {
         return Err("That sample file is not on this machine.".into());
     }

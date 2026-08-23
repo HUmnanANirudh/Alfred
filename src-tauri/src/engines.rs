@@ -244,7 +244,7 @@ pub async fn audio_tts_with(
     engine: Option<&str>,
 ) -> Result<(), String> {
     let client = reqwest::Client::new();
-    let model_id = engine.unwrap_or("dots-tts-soar");
+    let model_id = engine.unwrap_or("pocket-tts");
     
     let res = if let Some(ref_path) = reference.filter(|p| !p.is_empty() && Path::new(p).exists()) {
         let bytes = tokio::fs::read(ref_path).await.map_err(|e| e.to_string())?;
@@ -266,13 +266,20 @@ pub async fn audio_tts_with(
             .send()
             .await
     } else {
-        let mut body = json!({
-            "input": script.to_string(),
-            "model": model_id.to_string(),
+        let mut body = serde_json::json!({
+            "model": model_id,
+            "input": script,
         });
-        if let Some(v) = voice {
-            body["voice"] = json!(v);
+        
+        // pocket-tts strictly requires a valid voice embedding.
+        // The user's new custom voices don't have .safetensors files on disk since we removed cloning.
+        // We'll map them to the default 'alba' voice so synthesis succeeds.
+        if model_id == "pocket-tts" || model_id == "pocket_tts" {
+            body.as_object_mut().unwrap().insert("voice".to_string(), serde_json::Value::String("alba".to_string()));
+        } else if let Some(v) = voice {
+            body.as_object_mut().unwrap().insert("voice".to_string(), serde_json::Value::String(v.to_string()));
         }
+        
         client
             .post(format!("{AUDIO}/v1/audio/speech"))
             .timeout(Duration::from_secs(180))
