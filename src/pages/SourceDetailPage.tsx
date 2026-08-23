@@ -22,6 +22,8 @@ export function SourceDetailPage() {
   const [videoUrl, setVideoUrl] = useState('');
   const [currentTime, setCurrentTime] = useState(0);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [editingSegmentId, setEditingSegmentId] = useState<string | null>(null);
+  const [editingText, setEditingText] = useState('');
   const [videoError, setVideoError] = useState(false);
   const [engineHealth, setEngineHealth] = useState<{ audio: boolean; ffmpeg: boolean } | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -167,28 +169,60 @@ export function SourceDetailPage() {
           {transcript ? (
             transcript.segments.map((seg) => {
               const isActive = currentTime >= seg.start && currentTime <= seg.end;
+              const isEditing = editingSegmentId === seg.id;
+
               return (
                 <div 
                   key={seg.id} 
                   className={styles.card}
                   style={{
-                    cursor: 'pointer',
+                    cursor: isEditing ? 'default' : 'pointer',
                     borderColor: isActive ? 'var(--color-accent)' : 'transparent',
                     background: isActive ? 'var(--color-accent-subtle)' : 'var(--color-bg-elevated)',
                     transition: 'all 0.2s'
                   }}
                   onClick={() => {
-                    if (videoRef.current) {
+                    if (!isEditing && videoRef.current) {
                       videoRef.current.currentTime = seg.start;
                       videoRef.current.play();
                     }
                   }}
                 >
-                  <div className={styles.mono} style={{ color: isActive ? 'var(--color-accent)' : 'var(--color-text-tertiary)', marginBottom: 8 }}>
-                    {formatDuration(seg.start)} → {formatDuration(seg.end)}
-                    {seg.speaker ? ` · ${seg.speaker}` : ''}
+                  <div className={styles.mono} style={{ display: 'flex', justifyContent: 'space-between', color: isActive ? 'var(--color-accent)' : 'var(--color-text-tertiary)', marginBottom: 8 }}>
+                    <span>
+                      {formatDuration(seg.start)} → {formatDuration(seg.end)}
+                      {seg.speaker ? ` · ${seg.speaker}` : ''}
+                    </span>
+                    <Button variant="secondary" onClick={(e) => {
+                      e.stopPropagation();
+                      if (isEditing) {
+                        setEditingSegmentId(null);
+                        transcriptService.updateSegment(transcript.id, { ...seg, text: editingText }).then(() => hydrateWorkspace(id!));
+                      } else {
+                        setEditingSegmentId(seg.id);
+                        setEditingText(seg.text);
+                      }
+                    }}>
+                      {isEditing ? 'Save' : 'Edit'}
+                    </Button>
                   </div>
-                  <p style={{ margin: 0 }}>{seg.text}</p>
+                  {isEditing ? (
+                    <div onClick={(e) => e.stopPropagation()}>
+                      <Input 
+                        value={editingText} 
+                        onChange={(e) => setEditingText(e.target.value)} 
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            setEditingSegmentId(null);
+                            transcriptService.updateSegment(transcript.id, { ...seg, text: editingText }).then(() => hydrateWorkspace(id!));
+                          }
+                        }}
+                        autoFocus
+                      />
+                    </div>
+                  ) : (
+                    <p style={{ margin: 0 }}>{seg.text}</p>
+                  )}
                 </div>
               );
             })

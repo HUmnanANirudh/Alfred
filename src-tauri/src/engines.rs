@@ -335,6 +335,7 @@ pub async fn audio_transcribe(file_path: &str) -> Result<AsrResult, String> {
         .map_err(|e| e.to_string())?;
     let form = reqwest::multipart::Form::new()
         .part("file", part)
+        .text("model", "qwen3-asr")
         .text("response_format", "verbose_json");
     let client = reqwest::Client::new();
     let res = client
@@ -730,9 +731,16 @@ pub async fn try_start_audio() -> Result<(), String> {
     if !tools.audiocpp_server {
         return Err("audio.cpp (audiocpp_server) is not installed on this machine. Install it and add it to PATH.".into());
     }
-    Command::new("audiocpp_server")
-        .args(["--host", "127.0.0.1", "--port", "8766"])
-        .kill_on_drop(true)
+    let mut cmd = Command::new("audiocpp_server");
+    let cores = std::thread::available_parallelism().map(|n| n.get()).unwrap_or(4);
+    cmd.args(["--host", "127.0.0.1", "--port", "8766", "--threads", &cores.to_string()]);
+    let default_config = std::env::var("HOME").unwrap_or_default() + "/.local/share/audiocpp_server.json";
+    if let Ok(config) = std::env::var("ALFRED_AUDIO_CONFIG") {
+        cmd.args(["--config", &config]);
+    } else if std::path::Path::new(&default_config).exists() {
+        cmd.args(["--config", &default_config]);
+    }
+    cmd.kill_on_drop(true)
         .spawn()
         .map_err(|e| format!("Failed to start audiocpp_server: {e}"))?;
     // Give it time to bind to the port
@@ -780,9 +788,13 @@ pub async fn ensure_sidecars(
 
     if !audio_up().await && tools.audiocpp_server {
         let mut cmd = Command::new("audiocpp_server");
-        cmd.args(["--host", "127.0.0.1", "--port", "8766"]);
+        let cores = std::thread::available_parallelism().map(|n| n.get()).unwrap_or(4);
+        cmd.args(["--host", "127.0.0.1", "--port", "8766", "--threads", &cores.to_string()]);
+        let default_config = std::env::var("HOME").unwrap_or_default() + "/.local/share/audiocpp_server.json";
         if let Ok(config) = std::env::var("ALFRED_AUDIO_CONFIG") {
             cmd.args(["--config", &config]);
+        } else if std::path::Path::new(&default_config).exists() {
+            cmd.args(["--config", &default_config]);
         }
         match cmd.kill_on_drop(true).spawn() {
             Ok(child) => {
