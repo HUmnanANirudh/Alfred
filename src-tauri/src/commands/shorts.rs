@@ -134,7 +134,7 @@ pub async fn create_shorts(app: AppHandle, config: CreateShortConfig, state: Sta
         jobs::set_step(&mut job, 1, "running");
         jobs::emit(&app, &job);
         let prompt = format!(
-            "TASK: SELECT_CLIPS\nFORMAT: JSON only\nInput:\n{{\"transcript\":{},\"target_count\":{target}}}\nOutput schema: {{\"clips\":[{{\"start\":0,\"end\":12,\"hook_score\":0.9,\"hook\":\"...\",\"reason\":\"...\"}}]}}",
+            "TASK: SELECT_CLIPS\nFORMAT: JSON only\nInput:\n{{\"transcript\":{},\"target_count\":{target}}}\nOutput schema: {{\"clips\":[{{\"start\":0,\"end\":45,\"hook_score\":0.9,\"hook\":\"...\",\"reason\":\"...\"}}]}}\nMake sure clips are between 30 and 60 seconds long and cover a full cohesive thought.",
             transcript_text
         );
         if let Ok(raw) = engines::llama_complete(&prompt, 512).await {
@@ -155,10 +155,10 @@ pub async fn create_shorts(app: AppHandle, config: CreateShortConfig, state: Sta
     // Fallback: even splits when no clips found or no transcript available
     if clips.is_empty() {
         for i in 0..target {
-            let start = (i as f64) * 18.0;
+            let start = (i as f64) * 60.0;
             clips.push(json!({
                 "start": start,
-                "end": start + 14.0,
+                "end": start + 45.0,
                 "hook_score": 0.72,
                 "hook": "A concrete claim from this video.",
                 "reason": if transcript_text.is_empty() {

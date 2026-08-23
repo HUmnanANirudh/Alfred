@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react';
-import { PresetSelector } from './PresetSelector';
 import { Button } from '../ui/Button';
 import { Modal } from '../ui/Modal';
 import { Select } from '../ui/Select';
@@ -26,15 +25,12 @@ export function GenerateShortsModal({
   }) => void;
 }) {
   const [presets, setPresets] = useState<VideoPreset[]>([]);
-  const [presetId, setPresetId] = useState('');
   const [captions, setCaptions] = useState(true);
   const [captionStyle, setCaptionStyle] = useState('clean');
-  const [count, setCount] = useState(3);
 
   useEffect(() => {
     shortService.getPresets().then((list) => {
       setPresets(list);
-      setPresetId((current) => current || list[0]?.id || '');
     });
   }, []);
 
@@ -42,8 +38,6 @@ export function GenerateShortsModal({
     if (!isOpen) return;
     setCaptions(true);
     setCaptionStyle('clean');
-    setCount(3);
-    setPresetId((current) => current || presets[0]?.id || '');
   }, [isOpen, presets]);
 
   return (
@@ -58,12 +52,12 @@ export function GenerateShortsModal({
           <Button
             variant="primary"
             loading={busy}
-            disabled={!presetId || !video}
+            disabled={!video}
             onClick={() => onGenerate({
-              presetId,
+              presetId: presets[0]?.id || 'preset_1',
               captionsEnabled: captions,
               captionStyle,
-              numberOfClips: count,
+              numberOfClips: 10,
             })}
           >
             Generate shorts
@@ -72,7 +66,6 @@ export function GenerateShortsModal({
       )}
     >
       <div className={styles.body}>
-        <PresetSelector presets={presets} value={presetId} onChange={setPresetId} />
         <div className={styles.controls}>
           <Select label="Captions" value={captions ? 'on' : 'off'} onChange={(e) => setCaptions(e.target.value === 'on')}>
             <option value="on">On</option>
@@ -82,11 +75,6 @@ export function GenerateShortsModal({
             <option value="clean">Clean</option>
             <option value="bold">Bold</option>
             <option value="karaoke">Karaoke</option>
-          </Select>
-          <Select label="Number of clips" value={String(count)} onChange={(e) => setCount(Number(e.target.value))}>
-            <option value="1">1</option>
-            <option value="3">3</option>
-            <option value="5">5</option>
           </Select>
         </div>
       </div>
