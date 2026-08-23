@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { Mic, Play, Square } from 'lucide-react';
+import { Mic } from 'lucide-react';
 import { assetUrl } from '../services/ipc';
 import { PageHeader } from '../components/layout/PageHeader';
 import { SourceSelector } from '../components/sources/SourceSelector';
@@ -193,7 +193,6 @@ export function AudioPage() {
                     <Button
                       size="sm"
                       variant="ghost"
-                      leftIcon={playingId === item.id ? <Square size={12} /> : <Play size={12} />}
                       onClick={(e) => {
                         e.stopPropagation();
                         togglePlay(item);

@@ -1,5 +1,4 @@
 import { useNavigate, useParams } from 'react-router-dom';
-import { Mic, PenLine, Clapperboard } from 'lucide-react';
 import { Button } from '../components/ui/Button';
 import { projectService } from '../services/projectService';
 import { useProjectStore } from '../store/projectStore';
@@ -39,9 +38,9 @@ export function ProjectOverview() {
   return (
     <div className={styles.page}>
       <div className={styles.grid}>
-        <Button variant="secondary" leftIcon={<Clapperboard size={14} />} onClick={() => navigate(`/projects/${id}/video`)}>Generate video</Button>
-        <Button variant="secondary" leftIcon={<Mic size={14} />} onClick={() => navigate(`/projects/${id}/audio`)}>Generate audio</Button>
-        <Button variant="secondary" leftIcon={<PenLine size={14} />} onClick={() => navigate(`/projects/${id}/writing/article`)}>Write article</Button>
+        <Button variant="secondary" onClick={() => navigate(`/projects/${id}/video`)}>Generate video</Button>
+        <Button variant="secondary" onClick={() => navigate(`/projects/${id}/audio`)}>Generate audio</Button>
+        <Button variant="secondary" onClick={() => navigate(`/projects/${id}/writing/article`)}>Write article</Button>
       </div>
       {recent.length === 0 ? null : (
         <ul className={styles.stack}>

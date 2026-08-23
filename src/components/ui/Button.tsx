@@ -8,16 +8,12 @@ interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: ButtonVariant;
   size?: ButtonSize;
   loading?: boolean;
-  leftIcon?: React.ReactNode;
-  rightIcon?: React.ReactNode;
 }
 
 export function Button({
   variant = 'secondary',
   size = 'md',
   loading = false,
-  leftIcon,
-  rightIcon,
   children,
   disabled,
   className = '',
@@ -30,9 +26,7 @@ export function Button({
       {...props}
     >
       {loading && <span className={styles.spinner} aria-hidden />}
-      {!loading && leftIcon && <span className={styles.icon}>{leftIcon}</span>}
-      {children && <span>{children}</span>}
-      {!loading && rightIcon && <span className={styles.icon}>{rightIcon}</span>}
+      {children}
     </button>
   );
 }

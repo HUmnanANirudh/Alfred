@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Play, Pause, RotateCcw, RotateCw, Volume2, VolumeX, Music } from 'lucide-react';
+import { Music } from 'lucide-react';
 import { assetUrl } from '../../services/ipc';
 import { formatDuration } from '../../utils/format';
 import { Button } from '../ui/Button';
@@ -164,35 +164,37 @@ export function AudioPlayer({
             variant="ghost"
             size="sm"
             onClick={() => skip(-5)}
-            title="Rewind 5s"
-            leftIcon={<RotateCcw size={16} />}
-          />
-          <button
-            type="button"
-            className={styles.playButton}
-            onClick={togglePlay}
-            title={isPlaying ? 'Pause' : 'Play'}
+            title="Rewind 5 seconds"
           >
-            {isPlaying ? <Pause size={20} /> : <Play size={20} style={{ marginLeft: 2 }} />}
-          </button>
+            -5s
+          </Button>
+          <Button
+            variant="primary"
+            size="md"
+            onClick={togglePlay}
+            title={isPlaying ? 'Pause playback' : 'Start playback'}
+          >
+            {isPlaying ? 'Pause' : 'Play'}
+          </Button>
           <Button
             variant="ghost"
             size="sm"
             onClick={() => skip(5)}
-            title="Forward 5s"
-            leftIcon={<RotateCw size={16} />}
-          />
+            title="Forward 5 seconds"
+          >
+            +5s
+          </Button>
         </div>
 
         <div className={styles.volumeArea}>
-          <button
-            type="button"
-            className={styles.volBtn}
+          <Button
+            variant="ghost"
+            size="sm"
             onClick={toggleMute}
             title={isMuted ? 'Unmute' : 'Mute'}
           >
-            {isMuted || volume === 0 ? <VolumeX size={16} /> : <Volume2 size={16} />}
-          </button>
+            {isMuted || volume === 0 ? 'Muted' : 'Mute'}
+          </Button>
           <input
             type="range"
             min="0"
@@ -201,6 +203,7 @@ export function AudioPlayer({
             value={isMuted ? 0 : volume}
             onChange={(e) => handleVolumeChange(parseFloat(e.target.value))}
             className={styles.volSlider}
+            aria-label="Volume"
           />
         </div>
       </div>

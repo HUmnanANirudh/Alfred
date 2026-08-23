@@ -1,5 +1,4 @@
 import { useEffect, useState, useRef } from 'react';
-import { Play, Square } from 'lucide-react';
 import { invoke } from '@tauri-apps/api/core';
 import { assetUrl } from '../../services/ipc';
 import type { Voice } from '../../types';
@@ -105,7 +104,6 @@ export function VoiceTable({
                   variant="ghost"
                   loading={loadingId === voice.id}
                   disabled={loadingId === voice.id}
-                  leftIcon={playingId === voice.id ? <Square size={12} /> : <Play size={12} />}
                   onClick={(e) => {
                     e.stopPropagation();
                     void togglePreview(voice);

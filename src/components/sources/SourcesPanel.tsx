@@ -1,5 +1,4 @@
 import { Link, useParams } from 'react-router-dom';
-import { Plus } from 'lucide-react';
 import { useUiStore } from '../../store/uiStore';
 import { useWorkspaceStore } from '../../store/workspaceStore';
 import { formatDate } from '../../utils/format';
@@ -22,7 +21,7 @@ export function SourcesPanel() {
     <aside className={styles.panel} aria-label="Sources">
       <div className={styles.head}>
         <h2 className={styles.title}>Sources</h2>
-        <Button variant="primary" size="sm" leftIcon={<Plus size={14} />} onClick={() => setAdd(true)}>
+        <Button variant="primary" size="sm" onClick={() => setAdd(true)}>
           Add
         </Button>
       </div>

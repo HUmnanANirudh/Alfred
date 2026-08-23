@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import { Clapperboard, Pencil, Check, X } from 'lucide-react';
 import type { ClipCandidate } from '../../types';
 import { formatDuration } from '../../utils/format';
 import { Button } from '../ui/Button';
@@ -63,8 +62,8 @@ export function ClipCandidateCard({ clip, onRender, rendering, rendered }: Props
               type="number"
               step="0.5"
             />
-            <button className={styles.iconBtn} onClick={saveTime}><Check size={14} /></button>
-            <button className={styles.iconBtn} onClick={cancelTime}><X size={14} /></button>
+            <Button size="sm" variant="primary" onClick={saveTime}>Save</Button>
+            <Button size="sm" variant="ghost" onClick={cancelTime}>Cancel</Button>
           </div>
         ) : (
           <button className={styles.timeBtn} onClick={() => setEditingTime(true)}>
@@ -72,7 +71,7 @@ export function ClipCandidateCard({ clip, onRender, rendering, rendered }: Props
               {formatDuration(start)} → {formatDuration(end)}
             </span>
             <span className={styles.dur}>{dur.toFixed(1)}s</span>
-            <Pencil size={12} className={styles.pencil} />
+            <span style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text-tertiary)' }}>Edit</span>
           </button>
         )}
 
@@ -89,7 +88,6 @@ export function ClipCandidateCard({ clip, onRender, rendering, rendered }: Props
           disabled={rendering || rendered}
           onClick={() => onRender({ ...clip, start, end })}
         >
-          <Clapperboard size={14} />
           {rendered ? 'Rendered ✓' : rendering ? 'Rendering…' : 'Render Clip'}
         </Button>
       </div>
