@@ -340,7 +340,7 @@ pub async fn audio_transcribe(file_path: &str) -> Result<AsrResult, String> {
     let client = reqwest::Client::new();
     let res = client
         .post(format!("{AUDIO}/v1/audio/transcriptions"))
-        .timeout(Duration::from_secs(300))
+        .timeout(Duration::from_secs(900))
         .multipart(form)
         .send()
         .await

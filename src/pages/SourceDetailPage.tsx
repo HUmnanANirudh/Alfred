@@ -2,6 +2,8 @@ import { useEffect, useState, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { PageHeader } from '../components/layout/PageHeader';
 import { Button } from '../components/ui/Button';
+import { Input } from '../components/ui/Input';
+import { Textarea } from '../components/ui/Textarea';
 import { sourceService } from '../services/sourceService';
 import { transcriptService } from '../services/transcriptService';
 import { modelService } from '../services/modelService';
@@ -208,15 +210,10 @@ export function SourceDetailPage() {
                   </div>
                   {isEditing ? (
                     <div onClick={(e) => e.stopPropagation()}>
-                      <Input 
+                      <Textarea 
                         value={editingText} 
                         onChange={(e) => setEditingText(e.target.value)} 
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') {
-                            setEditingSegmentId(null);
-                            transcriptService.updateSegment(transcript.id, { ...seg, text: editingText }).then(() => hydrateWorkspace(id!));
-                          }
-                        }}
+                        rows={6}
                         autoFocus
                       />
                     </div>
