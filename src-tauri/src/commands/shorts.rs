@@ -325,18 +325,30 @@ pub async fn analyze_clips(
 
     // Ask the LLM to identify strong moments — variable length, content-aware
     let prompt = format!(
-        r#"You are a viral video editor. Analyze this transcript and identify the strongest short-form clip moments.
+        r#"You are a viral video editor. Analyze this transcript and identify 3 to 5 of the strongest short-form clip moments.
 
 Rules:
-- Each clip must capture one complete thought
-- Duration must match the content (20-90 seconds)
-- Output ONLY valid JSON containing a list of clips
+- Identify 3 to 5 different clips.
+- Each clip must capture one complete thought.
+- Duration must match the content (20-90 seconds).
+- Write an actual, unique hook and reason for each clip based on the text. Do not use generic placeholders.
+- Output ONLY valid JSON containing a list of clips.
 
 Transcript:
 {}
 
-Output schema:
-{{"clips":[{{"start": 12.5,"end": 55.0,"hook": "<write a compelling hook>","reason": "<explain why this is good>","hook_score": 0.9}}]}}"#,
+Output format (strictly valid JSON with this exact schema):
+{{
+  "clips": [
+    {{
+      "start": 12.34,
+      "end": 45.67,
+      "hook": "string",
+      "reason": "string",
+      "hook_score": 0.95
+    }}
+  ]
+}}"#,
         transcript_text
     );
 

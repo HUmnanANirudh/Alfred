@@ -5,6 +5,7 @@ import { Button } from '../components/ui/Button';
 import { Badge } from '../components/ui/Badge';
 import { EmptyState } from '../components/ui/EmptyState';
 import { modelService } from '../services/modelService';
+import { toast } from '../store/toastStore';
 import type { AIModel, StorageUsage } from '../types';
 import styles from './page.module.css';
 
@@ -42,7 +43,13 @@ export function ModelsPage() {
   async function install(id: string) {
     setBusyId(id);
     try {
-      await modelService.install(id);
+      const job = await modelService.install(id);
+      if (job && job.status === 'error') {
+        toast.error(job.error || 'Failed to install model');
+      }
+      await refresh();
+    } catch (e: any) {
+      toast.error(e?.toString() || 'Failed to install model');
       await refresh();
     } finally {
       setBusyId(null);

@@ -7,6 +7,7 @@ import { SourceSelector } from '../components/sources/SourceSelector';
 import { ProcessingPanel } from '../components/video/ProcessingPanel';
 import { Button } from '../components/ui/Button';
 import { EmptyState } from '../components/ui/EmptyState';
+import { Textarea } from '../components/ui/Textarea';
 import { audioService } from '../services/audioService';
 import { toast } from '../store/toastStore';
 import { useUiStore } from '../store/uiStore';
@@ -24,6 +25,7 @@ export function AudioPage() {
   const setActiveJob = useWorkspaceStore((s) => s.setActiveJob);
   const setAdd = useUiStore((s) => s.setAddSourceOpen);
   const [sourceIds, setSourceIds] = useState<string[]>([]);
+  const [manualScript, setManualScript] = useState('');
   const [voiceOpen, setVoiceOpen] = useState(false);
   const [job, setJob] = useState<Job | null>(null);
   const [busy, setBusy] = useState(false);
@@ -37,33 +39,41 @@ export function AudioPage() {
 
   async function generate(voiceId: string) {
     if (!id) return;
-    if (sourceIds.length === 0) {
-      toast.error('Select a source, then generate.');
+    const isManual = manualScript.trim().length > 0;
+    
+    if (sourceIds.length === 0 && !isManual) {
+      toast.error('Select a source or paste text to generate.');
       return;
     }
-    const script = scriptFromSources();
+    const script = isManual ? manualScript : scriptFromSources();
     if (!script.trim()) {
-      toast.error('That source has no text yet.');
+      toast.error('There is no text to generate from.');
       return;
     }
     setVoiceOpen(false);
     setBusy(true);
     try {
-      await audioService.generate(
+      const job = await audioService.generate(
         { projectId: id, voiceId, script, sourceIds },
         (next) => {
           setJob(next);
           setActiveJob(next);
         },
       );
+      if (job && job.status === 'error') {
+        throw new Error(job.error || 'TTS generation failed');
+      }
+      
       const list = await audioService.list(id);
       setAudio(list);
       setActiveJob(null);
       setJob(null);
       toast.success('Draft ready');
       if (list[0]) navigate(`/projects/${id}/audio/${list[0].id}`);
-    } catch {
-      toast.error('Audio generation couldn\'t be completed.');
+    } catch (e: any) {
+      toast.error(e?.message || e?.toString() || "Audio generation couldn't be completed.");
+      setJob(null);
+      setActiveJob(null);
     } finally {
       setBusy(false);
     }
@@ -79,7 +89,7 @@ export function AudioPage() {
               <Button variant="secondary" onClick={() => setAdd(true, 'text')}>Add source</Button>
               <Button
                 variant="primary"
-                disabled={sourceIds.length === 0 || busy}
+                disabled={(sourceIds.length === 0 && manualScript.trim().length === 0) || busy}
                 onClick={() => setVoiceOpen(true)}
               >
                 Generate audio
@@ -98,6 +108,13 @@ export function AudioPage() {
             variant="audio"
           />
         )}
+        
+        <Textarea
+          label="Or paste script directly here..."
+          rows={4}
+          value={manualScript}
+          onChange={(e) => setManualScript(e.target.value)}
+        />
       </div>
 
       {job && busy && (

@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { Play, Square } from 'lucide-react';
+import { invoke, convertFileSrc } from '@tauri-apps/api/core';
 import type { Voice } from '../../types';
 import { Badge } from '../ui/Badge';
 import { Button } from '../ui/Button';
@@ -8,15 +9,7 @@ import styles from './VoiceTable.module.css';
 
 const SAMPLE = 'Your research should never leave this machine.';
 
-function previewVoice(voice: Voice) {
-  if (typeof window === 'undefined' || !window.speechSynthesis) return null;
-  window.speechSynthesis.cancel();
-  const utter = new SpeechSynthesisUtterance(SAMPLE);
-  utter.rate = 0.96;
-  utter.pitch = voice.isCloned ? 0.85 : voice.name.length % 2 === 0 ? 1.08 : 0.95;
-  window.speechSynthesis.speak(utter);
-  return utter;
-}
+import { toast } from '../../store/toastStore';
 
 export function VoiceTable({
   voices,
@@ -28,23 +21,58 @@ export function VoiceTable({
   onSelect?: (id: string) => void;
 }) {
   const [playingId, setPlayingId] = useState<string | null>(null);
+  const [loadingId, setLoadingId] = useState<string | null>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
 
   useEffect(() => {
     return () => {
-      if (typeof window !== 'undefined') window.speechSynthesis.cancel();
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current.src = '';
+      }
     };
   }, []);
 
-  function togglePreview(voice: Voice) {
+  async function togglePreview(voice: Voice) {
     if (playingId === voice.id) {
-      window.speechSynthesis.cancel();
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current.src = '';
+      }
       setPlayingId(null);
       return;
     }
-    const utter = previewVoice(voice);
-    if (!utter) return;
-    setPlayingId(voice.id);
-    utter.onend = () => setPlayingId((current) => (current === voice.id ? null : current));
+    
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.src = '';
+    }
+    
+    setLoadingId(voice.id);
+    setPlayingId(null);
+    try {
+      const path = await invoke<string>('preview_tts', { 
+        voiceId: voice.id, 
+        script: SAMPLE 
+      });
+      const url = convertFileSrc(path);
+      
+      const audio = new Audio(url);
+      audioRef.current = audio;
+      
+      audio.onended = () => {
+        setPlayingId(null);
+      };
+      
+      await audio.play();
+      setPlayingId(voice.id);
+    } catch (e: any) {
+      console.error('Failed to play preview:', e);
+      toast.error(e?.toString() || 'Failed to generate preview. Make sure the TTS model is installed.');
+      setPlayingId(null);
+    } finally {
+      setLoadingId(null);
+    }
   }
 
   return (
@@ -74,10 +102,12 @@ export function VoiceTable({
                 <Button
                   size="sm"
                   variant="ghost"
+                  loading={loadingId === voice.id}
+                  disabled={loadingId === voice.id}
                   leftIcon={playingId === voice.id ? <Square size={12} /> : <Play size={12} />}
                   onClick={(e) => {
                     e.stopPropagation();
-                    togglePreview(voice);
+                    void togglePreview(voice);
                   }}
                 >
                   {playingId === voice.id ? 'Stop' : 'Preview'}

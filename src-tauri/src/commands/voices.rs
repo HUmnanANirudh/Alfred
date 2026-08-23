@@ -9,6 +9,7 @@ use tauri::{AppHandle, State};
 #[tauri::command]
 pub async fn list_voices(state: State<'_, AppState>) -> Result<Vec<Voice>, String> {
     let conn = state.connect()?;
+    
     db::collect(
         &conn,
         "SELECT id, name, sample_path, engine, is_default, is_cloned, created_at FROM voices ORDER BY created_at ASC",
@@ -143,6 +144,7 @@ pub async fn preview_tts(voice_id: String, script: String, state: State<'_, AppS
         &out.to_string_lossy(),
         Some(voice.id.as_str()),
         voice.sample_path.as_deref(),
+        Some(voice.engine.as_str()),
     )
     .await?;
     Ok(out.to_string_lossy().into_owned())

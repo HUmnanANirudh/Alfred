@@ -90,6 +90,7 @@ pub async fn generate_audio(
                 &out.to_string_lossy(),
                 Some(config.voice_id.as_str()),
                 voice.as_ref().and_then(|v| v.sample_path.as_deref()),
+                voice.as_ref().map(|v| v.engine.as_str()),
             )
             .await
             {
@@ -380,6 +381,7 @@ pub async fn generate_podcast(
             &take.to_string_lossy(),
             Some(voice_id.as_str()),
             voice.as_ref().and_then(|v| v.sample_path.as_deref()),
+            voice.as_ref().map(|v| v.engine.as_str()),
         )
         .await?;
         takes.push(take.to_string_lossy().into_owned());

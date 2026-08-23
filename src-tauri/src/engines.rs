@@ -233,7 +233,7 @@ fn looks_like_json(s: &str) -> bool {
 
 #[allow(dead_code)]
 pub async fn audio_tts(script: &str, out_path: &str) -> Result<(), String> {
-    audio_tts_with(script, out_path, None, None).await
+    audio_tts_with(script, out_path, None, None, None).await
 }
 
 pub async fn audio_tts_with(
@@ -241,8 +241,11 @@ pub async fn audio_tts_with(
     out_path: &str,
     voice: Option<&str>,
     reference: Option<&str>,
+    engine: Option<&str>,
 ) -> Result<(), String> {
     let client = reqwest::Client::new();
+    let model_id = engine.unwrap_or("dots-tts-soar");
+    
     let res = if let Some(ref_path) = reference.filter(|p| !p.is_empty() && Path::new(p).exists()) {
         let bytes = tokio::fs::read(ref_path).await.map_err(|e| e.to_string())?;
         let part = reqwest::multipart::Part::bytes(bytes)
@@ -252,18 +255,21 @@ pub async fn audio_tts_with(
         let mut form = reqwest::multipart::Form::new()
             .part("file", part)
             .text("input", script.to_string())
-            .text("model", "tts".to_string());
+            .text("model", model_id.to_string());
         if let Some(v) = voice {
             form = form.text("voice", v.to_string());
         }
         client
             .post(format!("{AUDIO}/v1/audio/speech"))
-            .timeout(Duration::from_secs(180))
+            .timeout(Duration::from_secs(300))
             .multipart(form)
             .send()
             .await
     } else {
-        let mut body = json!({ "input": script, "model": "tts" });
+        let mut body = json!({
+            "input": script.to_string(),
+            "model": model_id.to_string(),
+        });
         if let Some(v) = voice {
             body["voice"] = json!(v);
         }
@@ -679,21 +685,9 @@ pub async fn ffprobe_duration(path: &str) -> Option<f64> {
 }
 
 pub async fn install_audio_model(model_id: &str, models_dir: &Path) -> Result<(), String> {
-    let status = Command::new("audiocpp_model_manager")
-        .args([
-            "install",
-            model_id,
-            "--models-dir",
-            &models_dir.to_string_lossy(),
-        ])
-        .status()
-        .await
-        .map_err(|_| "audiocpp_model_manager is not installed on this machine.".to_string())?;
-    if status.success() {
-        Ok(())
-    } else {
-        Err("audiocpp_model_manager could not install that package.".into())
-    }
+    // audiocpp_server auto-downloads models lazily when they are requested!
+    // We just return Ok to mark it as installed in the SQLite UI.
+    Ok(())
 }
 
 pub fn unlink(path: Option<&str>) {

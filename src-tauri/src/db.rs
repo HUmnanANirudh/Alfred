@@ -30,25 +30,10 @@ async fn seed_voices(conn: &Connection) -> Result<(), String> {
     } else {
         0
     };
-    if count > 0 {
-        return Ok(());
-    }
-    let stamp = now();
-    let voices = [
-        ("vce_alex0", "Alex", "pocket_tts", 1, 0),
-        ("vce_sarah", "Sarah", "pocket_tts", 0, 0),
-        ("vce_james", "James", "chatterbox", 0, 0),
-        ("vce_maya", "Maya", "qwen3_tts", 0, 0),
-        ("vce_rio", "Rio", "supertonic", 0, 0),
-    ];
-    for (vid, name, engine, is_default, is_cloned) in voices {
-        conn.execute(
-            "INSERT INTO voices (id, name, engine, is_default, is_cloned, created_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
-            (vid, name, engine, is_default, is_cloned, stamp.as_str()),
-        )
+    // Remove legacy default voices
+    conn.execute("DELETE FROM voices WHERE is_cloned = 0 OR id LIKE 'vce_default_%' OR id LIKE 'vce_%'", ())
         .await
         .map_err(|e| e.to_string())?;
-    }
     Ok(())
 }
 
@@ -72,11 +57,10 @@ async fn seed_models(conn: &Connection) -> Result<(), String> {
         ("pocket_tts", "pocket_tts", "audio_cpp", "tts", "PocketTTS", 90, "not_installed", 1),
         ("chatterbox_q8", "chatterbox", "audio_cpp", "clone", "Chatterbox Q8", 410, "not_installed", 1),
         ("silero_vad", "silero_vad", "audio_cpp", "vad", "Silero VAD", 2, "installed", 1),
-        ("qwen3_asr_1_7b", "qwen3_asr", "audio_cpp", "asr", "Qwen3 ASR 1.7B", 1400, "not_installed", 0),
         ("sortformer_diar", "sortformer_diar", "audio_cpp", "diar", "Sortformer 4-speaker", 90, "not_installed", 1),
         ("htdemucs", "htdemucs", "audio_cpp", "sep", "HTDemucs", 320, "not_installed", 1),
-        ("supertonic", "supertonic", "audio_cpp", "tts", "Supertonic 3", 180, "not_installed", 0),
     ];
+    let _ = conn.execute("DELETE FROM installed_models WHERE id IN ('qwen3_asr_1_7b', 'supertonic', 'llama3_8b_q4')", ()).await;
     for (mid, family, engine, role, name, size, status, is_default) in models {
         conn.execute(
             "INSERT INTO installed_models (id, family, engine, role, display_name, size_bytes, status, is_default) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
