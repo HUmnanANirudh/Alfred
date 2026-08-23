@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Clapperboard, Sparkles } from 'lucide-react';
+import { Clapperboard } from 'lucide-react';
 import { PageHeader } from '../components/layout/PageHeader';
 import { ProcessingPanel } from '../components/video/ProcessingPanel';
 import { GenerateShortsModal } from '../components/video/GenerateShortsModal';
@@ -154,7 +154,6 @@ export function VideoPage() {
                 loading={analyzing}
                 onClick={analyzeClips}
               >
-                <Sparkles size={16} />
                 {analyzing ? 'Analyzing…' : 'Analyze Clips'}
               </Button>
             </>
