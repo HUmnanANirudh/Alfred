@@ -58,7 +58,7 @@ pub async fn create_voice(
         .await
         .map_err(|e| e.to_string())?;
         
-        // Return a dummy completed job so the frontend is happy
+        // Return an immediate completed job since voice creation is instantaneous
         let mut job = jobs::start("create_voice", None, vec![("Saving voice", None)]);
         jobs::set_step(&mut job, 0, "done");
         jobs::finish(&mut job, true, None);

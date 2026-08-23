@@ -11,10 +11,7 @@ export function isTauri(): boolean {
 
 export async function invokeCmd<T>(cmd: string, args?: Record<string, unknown>): Promise<T> {
   if (!isTauri()) {
-    console.warn(`[Mock IPC] Command '${cmd}' called in browser. Returning empty mock data.`);
-    if (cmd === 'list_projects' || cmd === 'list_sources' || cmd === 'list_writing' || cmd === 'list_audio' || cmd === 'list_voices' || cmd === 'list_videos' || cmd === 'list_transcripts' || cmd === 'list_shorts' || cmd === 'list_posts') return [] as T;
-    if (cmd === 'engine_health') return { llama: true, audio: true } as T;
-    return null as T;
+    throw new Error(`Desktop runtime required for '${cmd}'.`);
   }
   return invoke<T>(cmd, args);
 }
