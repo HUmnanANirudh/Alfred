@@ -12,6 +12,7 @@ import { shortService } from '../services/shortService';
 import { toast } from '../store/toastStore';
 import { useUiStore } from '../store/uiStore';
 import { useWorkspaceStore } from '../store/workspaceStore';
+import { hydrateWorkspace } from '../store/hydrate';
 import { useNavigate } from 'react-router-dom';
 import type { Job } from '../types';
 import styles from './page.module.css';
@@ -119,7 +120,9 @@ export function VideoPage() {
 
       {shorts.length > 0 ? (
         <div className={styles.stack} style={{ marginTop: 32 }}>
-          {shorts.map((short) => <ShortCard key={short.id} short={short} />)}
+          {shorts.map((short) => (
+            <ShortCard key={short.id} short={short} onDelete={() => hydrateWorkspace(id!)} />
+          ))}
         </div>
       ) : !busy ? (
         <EmptyState
