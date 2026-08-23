@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { Play, Square } from 'lucide-react';
-import { invoke, convertFileSrc } from '@tauri-apps/api/core';
+import { invoke } from '@tauri-apps/api/core';
+import { assetUrl } from '../../services/ipc';
 import type { Voice } from '../../types';
 import { Badge } from '../ui/Badge';
 import { Button } from '../ui/Button';
@@ -55,7 +56,7 @@ export function VoiceTable({
         voiceId: voice.id, 
         script: SAMPLE 
       });
-      const url = convertFileSrc(path);
+      const url = await assetUrl(path);
       
       const audio = new Audio(url);
       audioRef.current = audio;

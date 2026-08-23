@@ -755,7 +755,7 @@ pub async fn try_start_audio() -> Result<(), String> {
         return Err("audio.cpp (audiocpp_server) is not installed on this machine. Install it and add it to PATH.".into());
     }
     let mut cmd = Command::new("audiocpp_server");
-    let cores = std::thread::available_parallelism().map(|n| n.get()).unwrap_or(4);
+    let cores = std::thread::available_parallelism().map(|n| n.get().min(4)).unwrap_or(4);
     cmd.args(["--host", "127.0.0.1", "--port", "8766", "--threads", &cores.to_string()]);
     let default_config = std::env::var("HOME").unwrap_or_default() + "/.local/share/audiocpp_server.json";
     if let Ok(config) = std::env::var("ALFRED_AUDIO_CONFIG") {
@@ -795,7 +795,7 @@ pub async fn ensure_sidecars(
             // we copy the .so files to satisfy the dynamic backend loader).
             let server_path = format!("{local_bin}/llama-server");
             let ld_path = format!("{local_bin}:{local_lib}");
-            let cores = std::thread::available_parallelism().map(|n| n.get()).unwrap_or(4);
+            let cores = std::thread::available_parallelism().map(|n| n.get().min(4)).unwrap_or(4);
             match Command::new(&server_path)
                 .env("LD_LIBRARY_PATH", &ld_path)
                 .args([
@@ -823,7 +823,7 @@ pub async fn ensure_sidecars(
 
     if !audio_up().await && tools.audiocpp_server {
         let mut cmd = Command::new("audiocpp_server");
-        let cores = std::thread::available_parallelism().map(|n| n.get()).unwrap_or(4);
+        let cores = std::thread::available_parallelism().map(|n| n.get().min(4)).unwrap_or(4);
         cmd.args(["--host", "127.0.0.1", "--port", "8766", "--threads", &cores.to_string()]);
         let default_config = std::env::var("HOME").unwrap_or_default() + "/.local/share/audiocpp_server.json";
         if let Ok(config) = std::env::var("ALFRED_AUDIO_CONFIG") {

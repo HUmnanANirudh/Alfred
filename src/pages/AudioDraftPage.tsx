@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { PageHeader } from '../components/layout/PageHeader';
 import { ProcessingPanel } from '../components/video/ProcessingPanel';
+import { AudioPlayer } from '../components/audio/AudioPlayer';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { Textarea } from '../components/ui/Textarea';
@@ -124,11 +125,19 @@ export function AudioDraftPage() {
         }
       />
 
+      {draft.filePath && (
+        <AudioPlayer
+          filePath={draft.filePath}
+          title={title.trim() || 'Synthesized Speech'}
+          duration={draft.duration ?? undefined}
+        />
+      )}
+
       <div className={styles.stack}>
         <Input label="Title" value={title} onChange={(e) => setTitle(e.target.value)} />
         <Textarea
           label="Script"
-          rows={16}
+          rows={12}
           value={script}
           onChange={(e) => setScript(e.target.value)}
         />

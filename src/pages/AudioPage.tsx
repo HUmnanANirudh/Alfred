@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { Mic } from 'lucide-react';
+import { Mic, Play, Square } from 'lucide-react';
+import { assetUrl } from '../services/ipc';
 import { PageHeader } from '../components/layout/PageHeader';
 import { SourceSelector } from '../components/sources/SourceSelector';
 import { ProcessingPanel } from '../components/video/ProcessingPanel';
@@ -27,6 +28,45 @@ export function AudioPage() {
   const [manualScript, setManualScript] = useState('');
   const [job, setJob] = useState<Job | null>(null);
   const [busy, setBusy] = useState(false);
+  const [playingId, setPlayingId] = useState<string | null>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current.src = '';
+      }
+    };
+  }, []);
+
+  async function togglePlay(item: { id: string; filePath?: string | null }) {
+    if (!item.filePath) return;
+    if (playingId === item.id) {
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current.src = '';
+      }
+      setPlayingId(null);
+      return;
+    }
+
+    if (audioRef.current) {
+      audioRef.current.pause();
+    }
+
+    try {
+      const url = await assetUrl(item.filePath);
+      const el = new Audio(url);
+      audioRef.current = el;
+      el.onended = () => setPlayingId(null);
+      el.play().catch(() => setPlayingId(null));
+      setPlayingId(item.id);
+    } catch {
+      toast.error('Could not play audio file.');
+      setPlayingId(null);
+    }
+  }
 
   function scriptFromSources() {
     return sources
@@ -134,6 +174,7 @@ export function AudioPage() {
               <th>Voice</th>
               <th>Length</th>
               <th>Updated</th>
+              <th style={{ width: 80 }}>Listen</th>
             </tr>
           </thead>
           <tbody>
@@ -147,6 +188,23 @@ export function AudioPage() {
                 <td>{item.voiceName}</td>
                 <td>{item.duration != null ? formatDuration(item.duration) : '—'}</td>
                 <td>{formatDate(item.updatedAt ?? item.createdAt)}</td>
+                <td>
+                  {item.filePath ? (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      leftIcon={playingId === item.id ? <Square size={12} /> : <Play size={12} />}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        togglePlay(item);
+                      }}
+                    >
+                      {playingId === item.id ? 'Stop' : 'Play'}
+                    </Button>
+                  ) : (
+                    '—'
+                  )}
+                </td>
               </tr>
             ))}
           </tbody>
