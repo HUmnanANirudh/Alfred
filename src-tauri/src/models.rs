@@ -242,6 +242,32 @@ pub struct CreateShortConfig {
     pub broll_path: Option<String>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ClipCandidate {
+    pub id: String,
+    pub video_id: String,
+    pub start: f64,
+    pub end: f64,
+    pub hook: String,
+    pub reason: String,
+    pub hook_score: f64,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RenderClipConfig {
+    pub project_id: String,
+    pub video_id: String,
+    pub start: f64,
+    pub end: f64,
+    pub title: Option<String>,
+    pub hook: Option<String>,
+    pub hook_score: Option<f64>,
+    pub captions_enabled: bool,
+    pub caption_style: Option<String>,
+}
+
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct GenerateAudioConfig {

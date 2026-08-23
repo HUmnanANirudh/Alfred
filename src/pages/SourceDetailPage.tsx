@@ -2,7 +2,6 @@ import { useEffect, useState, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { PageHeader } from '../components/layout/PageHeader';
 import { Button } from '../components/ui/Button';
-import { Input } from '../components/ui/Input';
 import { Textarea } from '../components/ui/Textarea';
 import { sourceService } from '../services/sourceService';
 import { transcriptService } from '../services/transcriptService';

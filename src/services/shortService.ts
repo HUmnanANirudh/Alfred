@@ -1,4 +1,4 @@
-import type { CreateShortConfig, Job, Short, VideoPreset } from '../types';
+import type { ClipCandidate, CreateShortConfig, Job, RenderClipConfig, Short, VideoPreset } from '../types';
 import { invokeCmd, withJobProgress, type JobProgressHandler } from './ipc';
 
 export const shortService = {
@@ -12,4 +12,7 @@ export const shortService = {
   delete: (id: string) => invokeCmd<void>('delete_short', { id }),
   exportFile: (id: string) => invokeCmd<string>('export_short', { id }),
   savePreset: (preset: Omit<VideoPreset, 'id'>) => invokeCmd<VideoPreset>('save_preset', { preset }),
+  analyzeClips: (videoId: string) => invokeCmd<ClipCandidate[]>('analyze_clips', { videoId }),
+  renderClip: (config: RenderClipConfig, onProgress?: JobProgressHandler) =>
+    withJobProgress(() => invokeCmd<Job>('render_clip', { config }), onProgress),
 };

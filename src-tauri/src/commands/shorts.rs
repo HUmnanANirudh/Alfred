@@ -2,7 +2,7 @@ use crate::db;
 use crate::engines;
 use crate::ids::now;
 use crate::jobs;
-use crate::models::{CreateShortConfig, Job, Short, VideoPreset};
+use crate::models::{ClipCandidate, CreateShortConfig, Job, RenderClipConfig, Short, VideoPreset};
 use crate::AppState;
 use serde_json::json;
 use tauri::{AppHandle, State};
@@ -294,4 +294,180 @@ pub async fn export_short(id: String, state: State<'_, AppState>) -> Result<Stri
     let src = short.file_path.ok_or("Render the short first, then export.")?;
     let dest = state.data_dir.join("exports").join(format!("{id}.mp4"));
     engines::copy_export(&src, &dest)
+}
+
+/// Step 1: Run the LLM over the transcript and return a list of ClipCandidate proposals.
+/// Nothing is rendered at this stage.
+#[tauri::command]
+pub async fn analyze_clips(
+    video_id: String,
+    state: State<'_, AppState>,
+) -> Result<Vec<ClipCandidate>, String> {
+    let conn = state.connect()?;
+
+    // Load transcript for this video
+    let transcripts = db::collect(
+        &conn,
+        "SELECT id, video_id, project_id, segments, language, engine, created_at FROM transcripts WHERE video_id = ?1",
+        (video_id.as_str(),),
+        db::row_transcript,
+    )
+    .await?;
+
+    let transcript_text = transcripts
+        .first()
+        .map(|t| t.segments.to_string())
+        .unwrap_or_default();
+
+    if transcript_text.is_empty() || transcript_text == "[]" || transcript_text == "null" {
+        return Err("No transcript found for this video. Generate a transcript first.".into());
+    }
+
+    // Ask the LLM to identify strong moments — variable length, content-aware
+    let prompt = format!(
+        r#"You are a viral video editor. Analyze this transcript and identify the strongest short-form clip moments.
+
+Rules:
+- Each clip must capture one complete thought or story arc
+- Duration must match the content: 20-90 seconds is acceptable, never cut mid-sentence
+- Prioritize: strong hooks, surprising facts, emotional peaks, clear takeaways
+- Output ONLY valid JSON, nothing else
+
+Transcript segments (JSON array with start/end in seconds):
+{}
+
+Output schema:
+{{"clips":[{{"start":0.0,"end":45.2,"hook":"One-line hook for this clip","reason":"Why this is a strong short","hook_score":0.9}}]}}"#,
+        transcript_text
+    );
+
+    let raw = engines::llama_complete(&prompt, 800).await
+        .map_err(|e| format!("LLM failed: {e}"))?;
+
+    let parsed = engines::extract_json(&raw)
+        .map_err(|e| format!("Could not parse LLM response: {e}"))?;
+
+    let clips = parsed
+        .get("clips")
+        .and_then(|v| v.as_array())
+        .cloned()
+        .unwrap_or_default();
+
+    if clips.is_empty() {
+        return Err("The AI could not find strong clip moments in this transcript. Try generating the transcript first.".into());
+    }
+
+    let candidates: Vec<ClipCandidate> = clips
+        .into_iter()
+        .filter_map(|c| {
+            let start = c.get("start").and_then(|v| v.as_f64())?;
+            let end = c.get("end").and_then(|v| v.as_f64())?;
+            if end <= start { return None; }
+            Some(ClipCandidate {
+                id: crate::ids::id("clip"),
+                video_id: video_id.clone(),
+                start,
+                end,
+                hook: c.get("hook").and_then(|v| v.as_str()).unwrap_or("").to_string(),
+                reason: c.get("reason").and_then(|v| v.as_str()).unwrap_or("").to_string(),
+                hook_score: c.get("hook_score").and_then(|v| v.as_f64()).unwrap_or(0.7),
+            })
+        })
+        .collect();
+
+    Ok(candidates)
+}
+
+/// Step 2: Render a single specific clip into a Short using ffmpeg.
+#[tauri::command]
+pub async fn render_clip(
+    app: AppHandle,
+    config: RenderClipConfig,
+    state: State<'_, AppState>,
+) -> Result<Job, String> {
+    let conn = state.connect()?;
+
+    let mut job = jobs::start(
+        "render_clip",
+        Some(config.project_id.clone()),
+        vec![
+            ("Cutting clip", Some("ffmpeg")),
+            ("Saving", None),
+        ],
+    );
+    jobs::emit(&app, &job);
+
+    let mut videos = db::collect(
+        &conn,
+        "SELECT id, project_id, source_id, title, duration, file_path, thumbnail_path, url, has_transcript, created_at FROM videos WHERE id = ?1",
+        (config.video_id.as_str(),),
+        db::row_video,
+    )
+    .await?;
+    let video = videos.pop().ok_or("Video not found.")?;
+
+    let out_dir = state
+        .data_dir
+        .join("projects")
+        .join(&config.project_id)
+        .join("shorts");
+    let _ = std::fs::create_dir_all(&out_dir);
+
+    let dur = (config.end - config.start).max(4.0);
+    let sid = db::new_id("shrt");
+    let file = out_dir.join(format!("{sid}.mp4"));
+    let mut file_path = None;
+
+    jobs::set_step(&mut job, 0, "running");
+    jobs::emit(&app, &job);
+
+    if let Some(input) = video.file_path.as_ref() {
+        if engines::ffmpeg_cut_clip_layered(
+            input,
+            None,
+            config.start,
+            dur,
+            &file.to_string_lossy(),
+        )
+        .await
+        .is_ok()
+        {
+            file_path = Some(file.to_string_lossy().into_owned());
+        }
+    }
+
+    jobs::set_step(&mut job, 0, "done");
+    jobs::set_step(&mut job, 1, "running");
+    jobs::emit(&app, &job);
+
+    let hook = config.hook.clone().unwrap_or_else(|| "Clip".to_string());
+    let title = config.title.clone().unwrap_or_else(|| format!("Clip {:.0}s–{:.0}s", config.start, config.end));
+    let stamp = now();
+
+    conn.execute(
+        "INSERT INTO shorts (id, project_id, video_id, preset_id, title, duration, file_path, thumbnail_path, hook, confidence, transcript_excerpt, captions_enabled, caption_style, status, created_at)
+         VALUES (?1, ?2, ?3, 'default', ?4, ?5, ?6, NULL, ?7, ?8, ?9, ?10, ?11, 'done', ?12)",
+        (
+            sid.as_str(),
+            config.project_id.as_str(),
+            config.video_id.as_str(),
+            title.as_str(),
+            dur,
+            file_path.as_deref(),
+            hook.as_str(),
+            config.hook_score.unwrap_or(0.8),
+            hook.as_str(),
+            if config.captions_enabled { 1 } else { 0 },
+            config.caption_style.as_deref().unwrap_or("clean"),
+            stamp.as_str(),
+        ),
+    )
+    .await
+    .map_err(|e| e.to_string())?;
+
+    jobs::set_step(&mut job, 1, "done");
+    jobs::finish(&mut job, true, None);
+    jobs::emit(&app, &job);
+
+    Ok(job)
 }

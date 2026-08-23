@@ -95,6 +95,8 @@ pub fn run() {
             commands::shorts::delete_short,
             commands::shorts::export_short,
             commands::shorts::save_preset,
+            commands::shorts::analyze_clips,
+            commands::shorts::render_clip,
             commands::audio::list_audio,
             commands::audio::get_audio,
             commands::audio::generate_audio,

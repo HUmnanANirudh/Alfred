@@ -151,19 +151,25 @@ export type WordTimestamp = {
 // ------------------------------------------------------------
 
 export type ClipCandidate = {
-  id: string;                    // "clip_" + nanoid
-  transcriptId: string;
+  id: string;
   videoId: string;
+  start: number;
+  end: number;
+  hook: string;
+  reason: string;
+  hookScore: number;
+};
+
+export type RenderClipConfig = {
   projectId: string;
-  startTime: number;             // seconds (float)
-  endTime: number;               // seconds (float)
-  hookScore: number;             // 0.0 – 1.0  <- LFM2.5 scored
-  visualScore?: number;          // 0.0 – 1.0  <- SmolVLM2 scored
-  speechScore?: number;          // 0.0 – 1.0  <- ASR confidence in segment
-  hookText: string;              // the opening line / hook identified by LFM2.5
-  reason: string;                // LFM2.5's explanation for selecting this moment
-  transcriptExcerpt?: string;    // the segment text for this window
-  createdAt: string;
+  videoId: string;
+  start: number;
+  end: number;
+  title?: string;
+  hook?: string;
+  hookScore?: number;
+  captionsEnabled: boolean;
+  captionStyle?: string;
 };
 
 // ------------------------------------------------------------
